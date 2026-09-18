@@ -4,6 +4,9 @@
 
 - Migrated from `eks-operation-review` to `aws-eks-operations-review` skill (288 checks vs basic)
 - The older `eks-operation-review` skill has been removed from the repository
+- Added Amazon SageMaker AI support via the `sagemaker-ops-review` skill — endpoints, training jobs, pipelines, notebooks, feature store, model registry, and Studio domains
+- Documented that SageMaker AI reviews need `sagemaker-ops-review` uploaded with "All agents" selected, and that `AIDevOpsAgentAccessPolicy` covers every API it calls except the optional `savingsplans:DescribeSavingsPlans`
+- Noted the `sagemaker-ops-review` report schema (eight pillars, verbatim AI Disclaimer, severity-ranked Executive Summary) in the report-schema deference guidance, and added a SageMaker artifact naming example
 
 ## 1.0.0
 
