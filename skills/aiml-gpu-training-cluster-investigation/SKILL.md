@@ -11,7 +11,7 @@ description: Use this skill for GPU training or inference clusters on SageMaker 
   a failed node, NodeRecovery, deep health checks, EFA, log coverage, idle reserved
   GPUs. Activate on Xid or ECC errors, slow training or FSx for Lustre slowness on a GPU
   cluster, NCCL hangs or TCP fallback, NVLink or Fabric Manager errors, nodes in Failure
-  or Pending, nodes terminating at once, or "is my cluster ready for a multi- day run".
+  or Pending, nodes terminating at once, or "is my cluster ready for a multi-day run".
 metadata:
   author: nzuresh
   version: "1.0.0"
