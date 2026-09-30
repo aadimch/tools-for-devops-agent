@@ -25,11 +25,11 @@ Use this structure for chat responses and for the investigation root-cause summa
 
 ## GPU error log coverage
 
-| Node | Log source | Stream first / last event | Live across window | Kernel lines ever | Xids in window | Status |
-|------|------------|---------------------------|--------------------|-------------------|----------------|--------|
-| i-... | /aws/parallelcluster/.../system-messages | 09-23 16:19 / 09-23 16:24 | No | 2,666 | n/a | Not observable after 09-23 16:24 |
-| i-... | customer kernel group | 09-23 16:24 / now | Yes | 404 | 0 | Measured |
-| i-... (HyperPod) | HMA detections | no stream (expected when healthy) | Log group live | n/a | 0 | No HMA detections |
+| Node | Log group | Log stream | Stream first / last event | Live across window | Kernel lines ever | Xids in window | Status |
+|------|-----------|------------|---------------------------|--------------------|-------------------|----------------|--------|
+| i-... | /aws/parallelcluster/<cluster>-<ts> | ip-10-0-0-1.i-....system-messages | 09-23 16:19 / 09-23 16:24 | No | 2,666 | n/a | Not observable after 09-23 16:24 |
+| i-... | /aws/<pipeline>/<cluster>/kernel | ip-10-0-0-2...-i-... | 09-23 16:24 / now | Yes | 404 | 0 | Measured |
+| i-... (HyperPod) | /aws/sagemaker/Clusters/<name>/<id> | SagemakerHealthMonitoringAgent/<group>/i-... | no stream (expected when healthy) | Log group live | n/a | 0 | No HMA detections |
 
 ## Root cause
 
@@ -89,3 +89,5 @@ Rules:
   hardware grounds.
 - Every cause is labelled `Proven` or `Hypothesis (to validate)` with the confirming
   measurement.
+- Every coverage row names its full log group and exact log stream. "Customer kernel group"
+  or "HMA detections" alone is not enough: give the names.

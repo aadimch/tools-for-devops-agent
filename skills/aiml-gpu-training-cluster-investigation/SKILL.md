@@ -14,7 +14,7 @@ description: Use this skill for GPU training or inference clusters on SageMaker 
   or Pending, nodes terminating at once, or "is my cluster ready for a multi-day run".
 metadata:
   author: nzuresh
-  version: "1.0.0"
+  version: "1.0.1"
   aws-devops-agent-skills.agent-types: "Incident RCA, Chat tasks"
   aws-devops-agent-skills.aws-services: "Amazon SageMaker HyperPod, AWS ParallelCluster, Amazon EC2, Amazon FSx for Lustre, Elastic Fabric Adapter, Amazon EKS, AWS Health"
   aws-devops-agent-skills.technical-domains: "Machine Learning, GenAI, High Performance Computing"
@@ -28,22 +28,26 @@ wrong: silent evidence, wrong-headline hardware verdicts, and predictable failur
 long run. **Read-only.** Never reboot, replace, update, or delete anything, and never read
 training data, checkpoints, or model weights.
 
-## Critical procedure (always, in this order)
+## Critical rules R1 to R10 (apply in every mode, in this order)
 
-1. **Answer in one pass.** In chat, do not stop to ask a question and do not hand off to a
+R1. **Answer in one pass.** In chat, do not stop to ask a question and do not hand off to a
    separate investigation before answering. If an input is missing, use the default (impact
    window: last 24 hours; run length: evaluate 24, 48, and 72 hours), state the assumption,
    and mark dependent checks `Needs input`. For "slow" or performance questions with no
    time given, use the last 72 hours. Offer follow-ups only after the answer.
-2. **Inventory and capability profile.** HyperPod: `sagemaker.DescribeCluster` and
-   `ListClusterNodes` (paginate). EC2/ParallelCluster/EKS: `ec2.DescribeInstances`. For every
+R2. **Inventory and capability profile.** HyperPod: `sagemaker.DescribeCluster` and
+   `ListClusterNodes` (paginate). Read `NodeProvisioningMode` from `DescribeCluster`: if it is
+   `Continuous`, also pull `sagemaker.ListClusterEvents` for the window (see rule R11), which
+   is the only timeline source that survives broken log delivery. On any other value the call
+   is unsupported and must be skipped, not retried.
+   EC2/ParallelCluster/EKS: `ec2.DescribeInstances`. For every
    GPU instance type: `ec2.DescribeInstanceTypes` (strip HyperPod `ml.`): GPU count,
    `EfaSupported`, `MaximumEfaInterfaces`; per EC2 node, attached `efa`/`efa-only` interfaces.
    Report `<attached> of <max>`, where attached = interfaces with `InterfaceType` `efa` or
    `efa-only` (the primary ENA interface does not count unless it is `efa`). HyperPod nodes
    are not visible to `DescribeInstances`: say so. On NVSwitch types, search every log source
-   found in step 4 for `Started "Nvidia Fabric Manager"` before saying it is not confirmed.
-3. **Node identity survives replacement.** A HyperPod reboot keeps the instance ID; a replace
+   found under rule R4 for `Started "Nvidia Fabric Manager"` before saying it is not confirmed.
+R3. **Node identity survives replacement.** A HyperPod reboot keeps the instance ID; a replace
    gives the node a **new instance ID in the same instance group**, so the current ID will
    never appear in the replace request. Query CloudTrail **by event name, not by instance
    ID**: `cloudtrail.LookupEvents` with `LookupAttributes=[{AttributeKey: EventName,
@@ -54,26 +58,29 @@ training data, checkpoints, or model weights.
    that is not in the current `ListClusterNodes` output was replaced; the instance group
    whose node has a `LaunchTime` just after that event is the replaced group. That operator
    or automatic call is the explanation for the node going `Pending` (Branch E), not hardware.
-4. **Find every log source by substring, not prefix.** Call `logs.DescribeLogGroups` with
+R4. **Find every log source by substring, not prefix.** Call `logs.DescribeLogGroups` with
    `logGroupNamePattern` (case-sensitive substring) = the cluster name, then again for
    `kernel`, `messages`, `syslog`, `journal`, and `gpu`, paginating with `nextToken`. Never
    search only `/aws/parallelcluster` or `/aws/sagemaker` prefixes: customer pipelines use
    other names (for example `/aws/<pipeline>/<cluster>/kernel`). Evaluate every source found.
-5. **Prove coverage before any "no errors".** For each node and source: find the stream that
+R5. **Prove coverage before any "no errors".** For each node and source: find the stream that
    carries `kernel:` lines, then bin **that exact stream** by hour across the window padded by
-   one hour. Any empty hour means `Not observable` for that hour. First and last event times
+   one hour. **Always name the evidence you used: quote the full log group name and the exact
+   log stream name for every node in the coverage table, and again in the answer text.** A
+   coverage claim without the group and stream it rests on is not auditable, so the operator
+   cannot re-run it. Any empty hour means `Not observable` for that hour. First and last event times
    are not proof, and the time of the **last `kernel:` line** is not when logging stopped:
    a healthy kernel goes quiet. Liveness comes only from the hourly bins of all lines in
    that stream. A node is `Measured` if one source passes. HyperPod: a missing
    `SagemakerHealthMonitoringAgent/<group>/<instance-id>` stream means `No HMA detections`
    when the cluster log group is otherwise live. NCCL transport with no `NCCL INFO` lines
    anywhere is `Not observable`; never infer it from the instance type.
-6. **Verdict per node, headline to match.** `REPLACE`, `REBOOT`, `LEAVE ALONE`, `MONITOR`, or
+R6. **Verdict per node, headline to match.** `REPLACE`, `REBOOT`, `LEAVE ALONE`, `MONITOR`, or
    `NOT OBSERVABLE`, against the evidence bar in `references/incident-branches.md` (Step 4b).
    Application-class Xids (for example 13, 31) or HMA `reason: XidUserAppError` with the node
    `Running` is `LEAVE ALONE`. Never headline "hardware error" unless the verdict is `REPLACE`
    or `REBOOT` on hardware grounds.
-7. **Label every cause** `Proven` (measured signal on the affected node, before the failure,
+R7. **Label every cause** `Proven` (measured signal on the affected node, before the failure,
    nothing competing) or `Hypothesis (to validate)` with the one confirming measurement. A
    spike at the same time is correlation. FSx without a saturated metric is not a proven cause.
    Only a `Proven` cause may be called the root cause, in the headline or in a branch table.
@@ -83,28 +90,53 @@ training data, checkpoints, or model weights.
    Utilization metrics from FSx (`NetworkThroughputUtilization`, `DiskIopsUtilization`, and
    similar) and `GPUPowerUtilization` are already percent from 0 to 100: a value of `0.9` is
    0.9 percent. Quote the raw value with a percent sign.
-8. **Recovery questions** always state three things: whether automatic node recovery is on
+R8. **Recovery questions** always state three things: whether automatic node recovery is on
    (`NodeRecovery`), what it does (reboot or replace the node), and that the **job** resumes
    only with checkpoints plus the orchestrator's auto-resume (Slurm on HyperPod:
    `srun --auto-resume=1`).
-9. **Capacity Blocks** begin terminating instances 30 minutes before the end time (60 for
+R9. **Capacity Blocks** begin terminating instances 30 minutes before the end time (60 for
    UltraServers); blocks end at 11:30 UTC and termination starts at 11:00 UTC on the last day.
    For a planned run, write out: usable until = end time minus the lead time; run end = start
    plus run length; hours covered = usable until minus start. Give every value as a full UTC
    date and time, and check the latest safe start is not already in the past.
-10. **Rule out the frequent non-GPU causes** in `references/cluster-edge-cases.md` before
+R10. **Rule out the frequent non-GPU causes** in `references/cluster-edge-cases.md` before
    blaming hardware: subnet IP or network interface exhaustion, ParallelCluster bootstrap
    failures and protected mode, EFA nodes in a public subnet, a Capacity Block not yet
    active, and the FSx maintenance window. HyperPod does not export system metrics to
    CloudWatch, so HyperPod GPU activity is `Not observable` there.
+R11. **When the logs are dead, ask the control plane.** On HyperPod with
+   `NodeProvisioningMode = Continuous`, `sagemaker.ListClusterEvents` returns a node and
+   cluster timeline that does not depend on any log agent, so it still answers when a log
+   stream is silent or a node has vanished. Filter with `EventTimeAfter` / `EventTimeBefore`,
+   narrow with `NodeId` or `InstanceGroupName`, sort `SortBy=EventTime`, and paginate on
+   `NextToken`; use `DescribeClusterEvent` for the detail of any event whose `Description` is
+   not self-explanatory. The response carries **no severity or level field**, so classify by
+   `Description` and say the classification is yours, not the API's. On a cluster whose
+   `NodeProvisioningMode` is not `Continuous` the call is unsupported: record
+   `ListClusterEvents not supported` in the coverage table and move on. Never report a dead
+   log as "no events" without having tried this source or stated that it is unavailable.
 
 ## Pick the mode
 
-| The user asks | Mode | Run |
-|---------------|------|-----|
-| Something failed, hung, slowed, or lost nodes | **I: Incident** | Steps 1 to 6 |
-| "Were there GPU errors?", "Can I trust the logs?" | **C: Coverage audit** | Steps 1 to 3, report the coverage table |
-| "Is the cluster ready for a long run?", Capacity Block ending | **P: Pre-flight** | Steps 1 to 3, then Mode P |
+| The user asks | Mode | Steps to run |
+|---------------|------|--------------|
+| Something failed, hung, slowed, or lost nodes | **I: Incident** | Steps 1 to 7 |
+| "Were there GPU errors?", "Can I trust the logs?" | **C: Coverage audit** | Steps 1 to 3, then 6 and 7 |
+| "Is the cluster ready for a long run?", Capacity Block ending | **P: Pre-flight** | Steps 1 to 3, then 5P, 6 and 7 |
+
+## Workflow checklist
+
+Work through these in order and tick each one as it completes. Skip only the steps the
+mode table excludes. Every step below has a matching `## Step N` section with its detail.
+
+- [ ] Step 1: Scope the request — account, region, cluster or instance IDs, impact window
+- [ ] Step 2: Build the inventory, capability profile, and one ordered timeline
+- [ ] Step 3: Prove GPU log coverage per node before looking for errors
+- [ ] Step 4: Classify each fault and give every node a verdict
+- [ ] Step 5: Pull metrics and settle the root-cause branch
+- [ ] Step 5P: Score pre-flight checks P1 to P16 (Mode P only, replaces Steps 4 and 5)
+- [ ] Step 6: Write the report in the required format
+- [ ] Step 7: Self-check the finished output, then present it
 
 ## Step 1: Scope
 
@@ -113,6 +145,11 @@ stated). Classify the symptom to pick a starting branch (Step 5), but collect ev
 
 ## Step 2: Inventory and timeline
 
+Load [references/inventory-and-timeline.md](references/inventory-and-timeline.md) for the
+inventory API calls and the eight timeline sources, and
+[references/cluster-edge-cases.md](references/cluster-edge-cases.md) for the frequent non-GPU
+causes to rule out under rule R10:
+
 ```
 read_skill_resource(skill_id="aiml-gpu-training-cluster-investigation", path="references/inventory-and-timeline.md")
 read_skill_resource(skill_id="aiml-gpu-training-cluster-investigation", path="references/cluster-edge-cases.md")
@@ -120,9 +157,14 @@ read_skill_resource(skill_id="aiml-gpu-training-cluster-investigation", path="re
 
 Build one ordered timeline for the window plus 30 minutes each side: node state, HMA
 detections, Xids, AWS Health, EC2 status and scheduled events, Capacity Block and training plan
-end times, and CloudTrail cluster changes (critical procedure 3).
+end times, and CloudTrail cluster changes (rule R3).
 
 ## Step 3: Coverage audit
+
+Load [references/coverage-audit.md](references/coverage-audit.md) for the log-source discovery
+and hourly coverage queries, and
+[references/nccl-nvlink-efa.md](references/nccl-nvlink-efa.md) for NCCL transport, NVLink and
+NVSwitch, and EFA signals:
 
 ```
 read_skill_resource(skill_id="aiml-gpu-training-cluster-investigation", path="references/coverage-audit.md")
@@ -130,8 +172,15 @@ read_skill_resource(skill_id="aiml-gpu-training-cluster-investigation", path="re
 ```
 
 Produce the coverage table and the node capability and fabric table for every affected node.
+Every row names the full log group name and the exact log stream name that row's verdict rests
+on, so the operator can re-run the same query. Where no stream carries kernel lines, say which
+groups you searched and that none did.
 
 ## Step 4: Classify faults and give node verdicts
+
+Load [references/xid-triage.md](references/xid-triage.md) for the Xid catalog and per-code
+verdicts, and [references/incident-branches.md](references/incident-branches.md) for the node
+verdict evidence bar and branches A to F:
 
 ```
 read_skill_resource(skill_id="aiml-gpu-training-cluster-investigation", path="references/xid-triage.md")
@@ -139,6 +188,9 @@ read_skill_resource(skill_id="aiml-gpu-training-cluster-investigation", path="re
 ```
 
 ## Step 5: Metrics and root-cause branch
+
+Load [references/signals-and-thresholds.md](references/signals-and-thresholds.md) for metric
+names, dimensions, and thresholds:
 
 ```
 read_skill_resource(skill_id="aiml-gpu-training-cluster-investigation", path="references/signals-and-thresholds.md")
@@ -150,19 +202,48 @@ lifecycle), C (storage), D (NCCL, NVLink/NVSwitch, EFA), E (cluster change), and
 only after A to E are ruled out), as defined in `incident-branches.md`. Recommend operator
 actions only.
 
-## Mode P: Pre-flight readiness
+## Step 5P: Pre-flight readiness (Mode P)
+
+Load [references/preflight.md](references/preflight.md) for pre-flight checks P1 to P16:
 
 ```
 read_skill_resource(skill_id="aiml-gpu-training-cluster-investigation", path="references/preflight.md")
 ```
 
-Score checks P1 to P16. Lead with FAIL, then RISK.
+Score checks P1 to P16. Lead with FAIL, then RISK. In Mode P this step replaces
+Steps 4 and 5.
 
 ## Step 6: Report
+
+Load [references/report-format.md](references/report-format.md) for the report template and its rules:
 
 ```
 read_skill_resource(skill_id="aiml-gpu-training-cluster-investigation", path="references/report-format.md")
 ```
+
+## Step 7: Self-check before presenting
+
+Before showing the answer to the user, re-read your own draft and verify each of these.
+Fix the draft where a check fails; do not present an output that fails one.
+
+- [ ] Every "no errors found" statement is backed by a node whose coverage you proved in
+      Step 3. If coverage was not proven, the wording is `Not observable`, not healthy.
+- [ ] Every coverage row names its full log group and exact log stream (rule R5). A coverage
+      claim with no named source is not auditable and must be fixed before presenting.
+- [ ] Every node verdict still meets the evidence bar that justifies it, re-read from
+      [references/incident-branches.md](references/incident-branches.md) Step 4b.
+- [ ] The headline matches the verdicts. It does not say "hardware error" unless a verdict
+      is `REPLACE` or `REBOOT` on hardware grounds (rule R6).
+- [ ] Every cause carries a `Proven` or `Hypothesis (to validate)` label, and anything
+      labelled `Proven` has a measured signal on the affected node before the failure
+      (rule R7). Nothing unproven is called the root cause.
+- [ ] Every percentage came straight from the metric without rescaling (rule R7).
+- [ ] Every absent signal is reported as `Not observable` with what to collect, never as
+      zero or as healthy.
+- [ ] Each recommendation names an operator action, and no mutating API call was made.
+- [ ] Every number in the answer can be traced to a call you actually made this run.
+
+State the outcome of this self-check in one line, naming anything you could not verify.
 
 ## Success criteria
 

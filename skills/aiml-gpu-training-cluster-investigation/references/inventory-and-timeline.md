@@ -140,6 +140,17 @@ timeline:
    instance types and 60 minutes before for UltraServer types, and emits a
    `Capacity Block Expiration Warning` event 40 minutes before the end.
 
+   For per-instance proof rather than a window inference, look for the
+   `Capacity Reservation Instance Interruption Warning` EventBridge event
+   (`source: aws.ec2`). Its detail carries `instance-id`, `instance-termination-time`,
+   and `instance-lifecycle: capacity-block`. That is the most direct evidence available
+   that a specific node was terminated by the Capacity Block rather than by a fault: it
+   names the instance and the time. Prefer it over "the node died near the EndDate".
+   These events are only retrievable if the customer routes them to a target that
+   retains them (a log group, or an archive). If no such target exists, say the
+   per-instance warning was `Not observable` and fall back to the `EndDate` window,
+   labelled `Hypothesis (to validate)`.
+
 7. **Cluster control-plane changes.** `cloudtrail.LookupEvents` with
    `EventSource = sagemaker.amazonaws.com` for `UpdateCluster`,
    `UpdateClusterSoftware`, `BatchReplaceClusterNodes`, `BatchRebootClusterNodes`,
@@ -148,3 +159,48 @@ timeline:
    `EventSource = fsx.amazonaws.com` for `UpdateFileSystem`. Record who made the
    change and when. If `LookupEvents` needs operator approval in this runtime, ask
    once and continue without it if denied, and name the gap in the report.
+
+8. **HyperPod cluster events from the control plane** (HyperPod only, and only on
+   clusters that support it). This is the one timeline source that still answers when log
+   delivery is broken, so reach for it first on any "the logs are empty" or "the node
+   vanished" symptom rather than last.
+
+   **Check the gate before calling it.** `ListClusterEvents` is only supported on
+   clusters whose `NodeProvisioningMode` is `Continuous`. Read
+   `NodeProvisioningMode` from `DescribeCluster` first. On a cluster without it the call
+   fails with:
+
+   ```
+   ValidationException: ListClusterEvents is only supported for cluster with
+   NodeProvisioningMode set to Continuous
+   ```
+
+   That is a capability limit, not an error worth retrying and not evidence about the
+   cluster's health. If the field is absent or not `Continuous`, skip this source and say
+   so in the coverage table: `ListClusterEvents not supported (NodeProvisioningMode not
+   Continuous)`. Verified live against a HyperPod Slurm cluster, which returned exactly
+   the message above.
+
+   ```
+   sagemaker.ListClusterEvents                  # ClusterName (required), plus
+                                                # EventTimeAfter / EventTimeBefore for the
+                                                # window, NodeId or InstanceGroupName to
+                                                # narrow, ResourceType in
+                                                # Cluster | InstanceGroup | Instance,
+                                                # SortBy=EventTime,
+                                                # SortOrder=Ascending | Descending.
+                                                # Paginate on NextToken until exhausted
+   sagemaker.DescribeClusterEvent               # EventId + ClusterName, for any event whose
+                                                # Description is not self-explanatory.
+                                                # Returns EventDetails.EventMetadata
+   ```
+
+   Each event returns `EventId`, `ClusterArn`, `ClusterName`, `InstanceGroupName`,
+   `InstanceId`, `ResourceType`, `EventTime`, and `Description`. There is **no severity
+   or level field** on the response, so do not filter or rank by one, and do not report a
+   severity you did not read. Classify by `Description` text and `ResourceType`, and say
+   the classification is yours rather than the API's.
+
+   Merge these into the same ordered timeline. Where a control-plane event and a log line
+   describe the same moment, keep both and note the agreement, since that is what raises a
+   cause from `Hypothesis` to `Proven`.

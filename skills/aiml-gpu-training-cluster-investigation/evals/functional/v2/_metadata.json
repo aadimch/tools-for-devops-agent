@@ -1,0 +1,251 @@
+{
+  "version": "v2",
+  "created_at": "2026-09-28T19:33:47Z",
+  "skill_dir": "/Users/sureshnt/Library/CloudStorage/OneDrive-amazon.com/Claude/tools-for-devops-agent/skills/aiml-gpu-training-cluster-investigation",
+  "skill_name": "aiml-gpu-training-cluster-investigation",
+  "iterations": 3,
+  "skip_cleanup": false,
+  "region": null,
+  "stacks": [
+    {
+      "stack_name": "devops-agent-space-skill-eval-hyperpod-application-xid-verdict-iteration-1-with-skill-24cb556ecbdc",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-hyperpod-application-xid-verdict-iteration-1-with-skill-24cb556ecbdc/880750d0-bb73-11f1-b2f5-0abe5376106d",
+      "agent_space_id": "81db42b4-bdc9-4924-a70c-1192056a678f",
+      "eval_id": "hyperpod-application-xid-verdict",
+      "iteration": 1,
+      "run_type": "with_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-hyperpod-application-xid-verdict-iteration-1-without-skill-f474e1911a64",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-hyperpod-application-xid-verdict-iteration-1-without-skill-f474e1911a64/8801f9a0-bb73-11f1-8feb-0af785a66bc3",
+      "agent_space_id": "bef7a7d7-3277-455a-9f29-2e83c2bb2147",
+      "eval_id": "hyperpod-application-xid-verdict",
+      "iteration": 1,
+      "run_type": "without_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-hyperpod-application-xid-verdict-iteration-2-with-skill-579b23af500e",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-hyperpod-application-xid-verdict-iteration-2-with-skill-579b23af500e/884c7020-bb73-11f1-b72d-02912c7619f5",
+      "agent_space_id": "c3d303b5-58f1-4243-b4c1-1bc62cc30654",
+      "eval_id": "hyperpod-application-xid-verdict",
+      "iteration": 2,
+      "run_type": "with_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-hyperpod-application-xid-verdict-iteration-2-without-skill-9140fdc30e22",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-hyperpod-application-xid-verdict-iteration-2-without-skill-9140fdc30e22/885597e0-bb73-11f1-83ae-0affce6ab7e5",
+      "agent_space_id": "4baceea5-1bdb-4a1a-9b98-b28f8fe118ce",
+      "eval_id": "hyperpod-application-xid-verdict",
+      "iteration": 2,
+      "run_type": "without_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-hyperpod-application-xid-verdict-iteration-3-with-skill-c8c1c42020a4",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-hyperpod-application-xid-verdict-iteration-3-with-skill-c8c1c42020a4/88537500-bb73-11f1-9004-0afeb8aa52cf",
+      "agent_space_id": "0c14cf7d-2c01-4c4d-ad80-5cf94ed210bf",
+      "eval_id": "hyperpod-application-xid-verdict",
+      "iteration": 3,
+      "run_type": "with_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-hyperpod-application-xid-verdict-iteration-3-without-skill-b43589f12c23",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-hyperpod-application-xid-verdict-iteration-3-without-skill-b43589f12c23/885522b0-bb73-11f1-8160-06ba01c386f9",
+      "agent_space_id": "b62c807c-ed45-42bb-a0a6-9c10daf7fbed",
+      "eval_id": "hyperpod-application-xid-verdict",
+      "iteration": 3,
+      "run_type": "without_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-gpu-log-coverage-audit-iteration-1-with-skill-a06c32dca9d9",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-gpu-log-coverage-audit-iteration-1-with-skill-a06c32dca9d9/87fddaf0-bb73-11f1-919b-06b46de19d01",
+      "agent_space_id": "0fde330c-0e0c-4818-9b44-d41676f67991",
+      "eval_id": "gpu-log-coverage-audit",
+      "iteration": 1,
+      "run_type": "with_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-gpu-log-coverage-audit-iteration-1-without-skill-10f8bac35944",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-gpu-log-coverage-audit-iteration-1-without-skill-10f8bac35944/884236f0-bb73-11f1-9b7f-0a7cbea10a59",
+      "agent_space_id": "a060f0b5-7850-4d03-b596-7a112a3b8a50",
+      "eval_id": "gpu-log-coverage-audit",
+      "iteration": 1,
+      "run_type": "without_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-gpu-log-coverage-audit-iteration-2-with-skill-178eb4a3145d",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-gpu-log-coverage-audit-iteration-2-with-skill-178eb4a3145d/8850dcf0-bb73-11f1-a64e-02cc216973e1",
+      "agent_space_id": "92f2afa0-0cff-4cd5-b9d4-11365058985e",
+      "eval_id": "gpu-log-coverage-audit",
+      "iteration": 2,
+      "run_type": "with_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-gpu-log-coverage-audit-iteration-2-without-skill-397bf5ee90a6",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-gpu-log-coverage-audit-iteration-2-without-skill-397bf5ee90a6/8841e8d0-bb73-11f1-9014-0a07971e738b",
+      "agent_space_id": "1f748f61-3197-47b6-b403-e98b1b12771f",
+      "eval_id": "gpu-log-coverage-audit",
+      "iteration": 2,
+      "run_type": "without_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-gpu-log-coverage-audit-iteration-3-with-skill-2b164b799ff3",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-gpu-log-coverage-audit-iteration-3-with-skill-2b164b799ff3/885c4ea0-bb73-11f1-8957-0a6dde023069",
+      "agent_space_id": "7b62797b-dc37-4b20-9bbf-dd83e4e18b50",
+      "eval_id": "gpu-log-coverage-audit",
+      "iteration": 3,
+      "run_type": "with_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-gpu-log-coverage-audit-iteration-3-without-skill-a3b230dce91a",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-gpu-log-coverage-audit-iteration-3-without-skill-a3b230dce91a/8852d8c0-bb73-11f1-b311-06b93bf7c547",
+      "agent_space_id": "f9f4f341-74f5-4b9e-be6f-ca08ca57672d",
+      "eval_id": "gpu-log-coverage-audit",
+      "iteration": 3,
+      "run_type": "without_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-fsx-training-slowdown-cause-iteration-1-with-skill-6a5153161ebe",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-fsx-training-slowdown-cause-iteration-1-with-skill-6a5153161ebe/8849b100-bb73-11f1-9d8d-0ad6e8831b37",
+      "agent_space_id": "00fd6b5f-2526-4490-a843-280cddb5f2bb",
+      "eval_id": "fsx-training-slowdown-cause",
+      "iteration": 1,
+      "run_type": "with_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-fsx-training-slowdown-cause-iteration-1-without-skill-2be08fc70739",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-fsx-training-slowdown-cause-iteration-1-without-skill-2be08fc70739/88582ff0-bb73-11f1-8fc2-0a6271535ad5",
+      "agent_space_id": "48f76014-c387-4062-a3af-f21313de83a7",
+      "eval_id": "fsx-training-slowdown-cause",
+      "iteration": 1,
+      "run_type": "without_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-fsx-training-slowdown-cause-iteration-2-with-skill-27e533a55b28",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-fsx-training-slowdown-cause-iteration-2-with-skill-27e533a55b28/885cc3d0-bb73-11f1-800f-028be139ace7",
+      "agent_space_id": "751832e7-0c38-43cf-aff0-3ff940aedccb",
+      "eval_id": "fsx-training-slowdown-cause",
+      "iteration": 2,
+      "run_type": "with_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-fsx-training-slowdown-cause-iteration-2-without-skill-250dcdbbe331",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-fsx-training-slowdown-cause-iteration-2-without-skill-250dcdbbe331/885dd540-bb73-11f1-b081-06424f4db113",
+      "agent_space_id": "bc1a74ed-810d-4b7d-82e0-52176c52e67c",
+      "eval_id": "fsx-training-slowdown-cause",
+      "iteration": 2,
+      "run_type": "without_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-fsx-training-slowdown-cause-iteration-3-with-skill-94ae3330f3a8",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-fsx-training-slowdown-cause-iteration-3-with-skill-94ae3330f3a8/884c7020-bb73-11f1-a5b0-06fff2f0fcf9",
+      "agent_space_id": "6c4f12c9-8a8b-4df3-9e48-915c5bb42e57",
+      "eval_id": "fsx-training-slowdown-cause",
+      "iteration": 3,
+      "run_type": "with_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-fsx-training-slowdown-cause-iteration-3-without-skill-7fef65d8c5fe",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-fsx-training-slowdown-cause-iteration-3-without-skill-7fef65d8c5fe/8857bac0-bb73-11f1-a4c1-06fc5b71721f",
+      "agent_space_id": "4dc2e17f-9412-4620-971b-b83272c3ec23",
+      "eval_id": "fsx-training-slowdown-cause",
+      "iteration": 3,
+      "run_type": "without_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-preflight-long-run-readiness-iteration-1-with-skill-06efd13d4767",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-preflight-long-run-readiness-iteration-1-with-skill-06efd13d4767/885c2790-bb73-11f1-b592-02ffe26763b9",
+      "agent_space_id": "13438b6d-0fc2-46c7-b58c-2555e446c929",
+      "eval_id": "preflight-long-run-readiness",
+      "iteration": 1,
+      "run_type": "with_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-preflight-long-run-readiness-iteration-1-without-skill-02b07b19dd81",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-preflight-long-run-readiness-iteration-1-without-skill-02b07b19dd81/884cbe40-bb73-11f1-b748-0298c8efcce3",
+      "agent_space_id": "0b0ed6a8-09ba-427f-966c-49648cef49e8",
+      "eval_id": "preflight-long-run-readiness",
+      "iteration": 1,
+      "run_type": "without_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-preflight-long-run-readiness-iteration-2-with-skill-9859d34f5be8",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-preflight-long-run-readiness-iteration-2-with-skill-9859d34f5be8/0a5ddcc0-bb74-11f1-ab80-0a638eb74371",
+      "agent_space_id": "8b6a5824-bd2d-4770-b3a3-851cc3aa96cc",
+      "eval_id": "preflight-long-run-readiness",
+      "iteration": 2,
+      "run_type": "with_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-preflight-long-run-readiness-iteration-2-without-skill-1a42a05c366b",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-preflight-long-run-readiness-iteration-2-without-skill-1a42a05c366b/19c1d590-bb74-11f1-8f57-06c2cd5cabcd",
+      "agent_space_id": "86927ae2-be58-4b12-bf28-25876f0db41b",
+      "eval_id": "preflight-long-run-readiness",
+      "iteration": 2,
+      "run_type": "without_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-preflight-long-run-readiness-iteration-3-with-skill-81abe3a008df",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-preflight-long-run-readiness-iteration-3-with-skill-81abe3a008df/1c92f6f0-bb74-11f1-aaa4-0adcc577590b",
+      "agent_space_id": "14a2a42a-95a8-47a4-9fe9-732eec4e48de",
+      "eval_id": "preflight-long-run-readiness",
+      "iteration": 3,
+      "run_type": "with_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-preflight-long-run-readiness-iteration-3-without-skill-30238668525a",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-preflight-long-run-readiness-iteration-3-without-skill-30238668525a/26bc9690-bb74-11f1-bebb-026659c6b191",
+      "agent_space_id": "7021580f-b164-4414-b42f-25a23725902c",
+      "eval_id": "preflight-long-run-readiness",
+      "iteration": 3,
+      "run_type": "without_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-negative-bedrock-throttling-iteration-1-with-skill-483b42dc762f",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-negative-bedrock-throttling-iteration-1-with-skill-483b42dc762f/277a4140-bb74-11f1-95a2-06a79385a163",
+      "agent_space_id": "e23ae229-5191-4240-afca-3343855a421d",
+      "eval_id": "negative-bedrock-throttling",
+      "iteration": 1,
+      "run_type": "with_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-negative-bedrock-throttling-iteration-2-with-skill-e67ca4e34433",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-negative-bedrock-throttling-iteration-2-with-skill-e67ca4e34433/35e4e5f0-bb74-11f1-aea0-02cde3d69019",
+      "agent_space_id": "07218915-27f3-46e2-ae4a-62a5be9a6bc5",
+      "eval_id": "negative-bedrock-throttling",
+      "iteration": 2,
+      "run_type": "with_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-negative-bedrock-throttling-iteration-3-with-skill-ec97c02e6b06",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-negative-bedrock-throttling-iteration-3-with-skill-ec97c02e6b06/362bb2f0-bb74-11f1-b6eb-02ce357ee8d9",
+      "agent_space_id": "b02ec7ee-5268-488b-b92a-c1669043c841",
+      "eval_id": "negative-bedrock-throttling",
+      "iteration": 3,
+      "run_type": "with_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-negative-load-balancer-choice-iteration-1-with-skill-cb71784d8747",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-negative-load-balancer-choice-iteration-1-with-skill-cb71784d8747/51eea1f0-bb74-11f1-a995-060fd086e369",
+      "agent_space_id": "b20419ec-298e-4dd8-8ac5-13f2fea2c32b",
+      "eval_id": "negative-load-balancer-choice",
+      "iteration": 1,
+      "run_type": "with_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-negative-load-balancer-choice-iteration-2-with-skill-0b395bca1fe2",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-negative-load-balancer-choice-iteration-2-with-skill-0b395bca1fe2/5f7416c0-bb74-11f1-b83d-02643ff88d0d",
+      "agent_space_id": "fc1ca565-3e09-4ccc-8d3e-823d5508f910",
+      "eval_id": "negative-load-balancer-choice",
+      "iteration": 2,
+      "run_type": "with_skill"
+    },
+    {
+      "stack_name": "devops-agent-space-skill-eval-negative-load-balancer-choice-iteration-3-with-skill-810fd7de9d39",
+      "stack_id": "arn:aws:cloudformation:us-west-2:111122223333:stack/devops-agent-space-skill-eval-negative-load-balancer-choice-iteration-3-with-skill-810fd7de9d39/6534b6f0-bb74-11f1-be1b-0a0d021a549b",
+      "agent_space_id": "cf15cf6c-ce51-43a3-9457-8ad8393d842f",
+      "eval_id": "negative-load-balancer-choice",
+      "iteration": 3,
+      "run_type": "with_skill"
+    }
+  ]
+}

@@ -1,0 +1,102 @@
+{
+  "version": "v2",
+  "iteration": 2,
+  "eval_id": "preflight-long-run-readiness",
+  "run_type": "with_skill",
+  "success": true,
+  "error": null,
+  "understanding_agent_space_skill": null,
+  "tests": {
+    "trigger": {
+      "result": "passed",
+      "message": "Skill 'aiml-gpu-training-cluster-investigation' was triggered as expected",
+      "skill_loads_found": 2,
+      "warning": "Skill 'aiml-gpu-training-cluster-investigation' was triggered 2 times"
+    },
+    "expected_output": {
+      "result": "passed",
+      "reasoning": "The expected output requires a readiness verdict covering: (1) reserved capacity vs. four-day run length, (2) spare capacity to replace a failed node, (3) NodeRecovery setting, (4) deep health checks enabled status, and (5) GPU error logging visibility during the run \u2014 each reported as pass/risk/could-not-verify with evidence, with unverifiable items named rather than assumed to pass.\n\nThe agent's response addresses all five areas:\n1. Reserved capacity vs. run length: explicitly states \"No Capacity Block or Training Plan is attached \u2014 capacity is regular on-demand EC2... no hard expiration risk... but also no reserved spare pool.\" This is a risk assessment with evidence.\n2. Spare capacity for node replacement: \"replacement depends on on-demand g5 availability in us-west-2c at the time\" \u2014 flagged as risk, and separately notes \"network headroom for a replacement node... checks out clean.\"\n3. NodeRecovery setting: \"automatic node recovery... checks out clean\" \u2014 reported as pass.\n4. Deep health checks: explicitly flagged as a top fix item \u2014 \"No deep health checks configured on either GPU instance group (OnStartDeepHealthChecks is empty on both...)\" \u2014 risk with clear evidence.\n5. GPU error logging visibility: flagged as the #1 fix \u2014 \"health-monitoring agent stream for gpu-g5-xl is 3+ days stale, and there's no stream at all for gpu-g5-2xl\" \u2014 explicitly named as could-not-verify/risk with evidence, not assumed to pass.\n\nThe response gives an overall verdict (\"Not ready as-is \u2014 two real gaps to close before tomorrow\"), lists blocking items first, and clearly distinguishes pass items (node recovery, network headroom, storage health) from risk items (deep health checks, GPU monitoring stream) and could-not-verify items (driver version, NCCL/EFA unverifiable due to no logs, explicitly stated). This matches the expected structure and content closely.",
+      "confidence": "high"
+    },
+    "assertions": {
+      "assertion_results": [
+        {
+          "text": "The run length is compared against reserved capacity, or the response states explicitly that no capacity reservation was found",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"No Capacity Block or Training Plan is attached \u2014 capacity is regular on-demand EC2. That means no hard expiration risk (nothing forces termination at a fixed clock time)...\"",
+          "reasoning": "The agent explicitly states no capacity reservation was found and discusses implications for the 4-day run, satisfying the assertion.",
+          "confidence": "high"
+        },
+        {
+          "text": "Whether GPU error logging is arriving is treated as a readiness item, so a failure during the run would be visible",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"You can't see GPU faults on either compute node right now... If a GPU throws an Xid mid-run, you likely won't know from HyperPod's side... this is the one I'd chase down first since it affects your ability to detect a problem at all during the 4 days.\"",
+          "reasoning": "The agent treats GPU error/log visibility as the top readiness item, directly tying it to run visibility and risk during the training run.",
+          "confidence": "high"
+        },
+        {
+          "text": "Checks are reported individually with a pass, risk, or could-not-verify result each, rather than as undifferentiated prose",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "The response lists distinct items: health-monitoring agent staleness (risk), deep health checks empty (risk), Capacity Block/Training Plan absence (lower urgency, informational), alarms unrelated (hygiene, pass/non-issue), driver/NCCL unverifiable, storage healthy (pass), and 'Everything else... checks out clean.'",
+          "reasoning": "While not in a strict table format, each check is delineated as a separate bullet with an explicit status (fix first, worth knowing, unverifiable, checks out clean), which meets the substance of individual reporting with pass/risk/could-not-verify categorization, though it is prose-based bullets rather than a strict structured table.",
+          "confidence": "medium"
+        },
+        {
+          "text": "Checks that could not be verified are reported as unverified rather than silently treated as passing",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"Driver version and NCCL/EFA transport are unverifiable \u2014 no kernel or job-output logs are shipped for this cluster, so there's nothing to check against software minimums.\"",
+          "reasoning": "The agent explicitly flags an item as unverifiable rather than assuming it passes, satisfying the assertion.",
+          "confidence": "high"
+        },
+        {
+          "text": "The cluster's automatic node recovery configuration is reported as a named setting",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"Everything else \u2014 network headroom for a replacement node, EFA security group config, automatic node recovery \u2014 checks out clean.\"",
+          "reasoning": "Automatic node recovery is named explicitly as a checked setting and reported as passing, satisfying the assertion that it be reported as a named setting.",
+          "confidence": "high"
+        },
+        {
+          "text": "Whether deep health checks are enabled on the cluster is reported",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"No deep health checks configured on either GPU instance group (OnStartDeepHealthChecks is empty on both gpu-g5-xl and gpu-g5-2xl).\"",
+          "reasoning": "The agent explicitly reports on deep health check configuration status, naming the specific setting (OnStartDeepHealthChecks) and its state (empty/not enabled).",
+          "confidence": "high"
+        },
+        {
+          "text": "A per-check result keyword is used",
+          "evaluator": "regex",
+          "passed": true,
+          "evidence": "Matched 'risk'"
+        },
+        {
+          "text": "The cluster under review is named",
+          "evaluator": "regex",
+          "passed": true,
+          "evidence": "Matched 'skilltest-hp-slurm'"
+        }
+      ],
+      "summary": {
+        "passed": 8,
+        "failed": 0,
+        "errored": 0,
+        "low_confidence": 0,
+        "total": 8,
+        "pass_rate": 1.0
+      }
+    }
+  },
+  "metrics": {
+    "runtime": "3m25s",
+    "cost": "$1.70",
+    "context_window": {
+      "utilization": "7.7%",
+      "compaction_count": 0
+    }
+  }
+}

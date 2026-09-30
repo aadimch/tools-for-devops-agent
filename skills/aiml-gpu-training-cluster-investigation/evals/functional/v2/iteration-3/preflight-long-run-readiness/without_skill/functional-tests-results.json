@@ -1,0 +1,97 @@
+{
+  "version": "v2",
+  "iteration": 3,
+  "eval_id": "preflight-long-run-readiness",
+  "run_type": "without_skill",
+  "success": true,
+  "error": null,
+  "understanding_agent_space_skill": null,
+  "tests": {
+    "trigger": null,
+    "expected_output": {
+      "result": "failed",
+      "reasoning": "The expected output requires a structured readiness verdict covering several specific checks: (1) reserved capacity vs. the four-day run length, (2) whether spare capacity exists to replace a failed node, (3) the cluster's NodeRecovery setting, (4) whether deep health checks are enabled, and (5) whether GPU error logging is arriving so failures would be visible during the run. Each check should be reported as pass/risk/could-not-verify with supporting evidence, and unverifiable items should be explicitly named rather than assumed to pass.\n\nThe agent's response covers some overlapping ground but misses or handles differently most of the specific required checks:\n- It does NOT address reserved capacity duration vs. the 4-day run length at all.\n- It does NOT mention NodeRecovery setting explicitly (it says 'Automatic recovery will replace a failed node' which is a passing assumption, not verified/reported as pass/risk/could-not-verify with evidence).\n- It does NOT mention deep health checks status at all.\n- It mentions monitoring/alarms (related to visibility of failures) but frames it as 'zero monitoring' rather than specifically discussing GPU error logging arrival (e.g., DCGM/Xid logs to CloudWatch) \u2014 it only offers to check this in a follow-up, not as part of the verdict.\n- It does raise spare capacity/redundancy concern (single node per group) which partially covers 'whether spare capacity exists to replace a failed node' \u2014 this is a partial match, calling it a 'risk' due to no redundancy.\n- It does not use a clear pass/risk/could-not-verify structure per item with evidence; it's presented as a prioritized risk list, not the checklist format expected.\n- It surfaces an important issue (FSx belonging to another stack) not in the expected criteria, which is good additional info but doesn't substitute for the missing required checks.\n\nOverall, the response addresses a different set of concerns (storage/FSx ownership, monitoring alarms, node redundancy) rather than the specific expected checklist (capacity duration, NodeRecovery setting, deep health checks, GPU error log delivery). Several required items are entirely absent (reserved capacity duration, NodeRecovery setting explicitly, deep health checks), so this does not meet the expected output criteria.",
+      "confidence": "high"
+    },
+    "assertions": {
+      "assertion_results": [
+        {
+          "text": "The run length is compared against reserved capacity, or the response states explicitly that no capacity reservation was found",
+          "evaluator": "llm",
+          "passed": false,
+          "evidence": "The response never mentions capacity reservation status or whether one was found; it discusses FSx, monitoring, and node redundancy but nothing about reserved capacity vs. the four-day run length.",
+          "reasoning": "No mention of capacity reservation at all, positive or negative.",
+          "confidence": "high"
+        },
+        {
+          "text": "Whether GPU error logging is arriving is treated as a readiness item, so a failure during the run would be visible",
+          "evaluator": "llm",
+          "passed": false,
+          "evidence": "The response mentions 'no CloudWatch alarms at all for skilltest-hp-slurm \u2014 no node-down, GPU error, or EFA/network alarms' but does not address whether GPU error logging itself (e.g., Xid/NCCL error log delivery) is arriving/functional; it only offers to search logs as a follow-up ('searching the GPU nodes' logs for existing Xid/NCCL errors?').",
+          "reasoning": "The agent flags absence of alarms but does not treat log arrival/visibility itself as a readiness item that was checked; it's offered as a future action, not reported as a checked readiness item.",
+          "confidence": "high"
+        },
+        {
+          "text": "Checks are reported individually with a pass, risk, or could-not-verify result each, rather than as undifferentiated prose",
+          "evaluator": "llm",
+          "passed": false,
+          "evidence": "The three items are presented as a ranked prose list with narrative bullet points (e.g., 'Shared scratch FSx filesystem \u2014 highest risk...' followed by sub-bullets of explanation) rather than a structured pass/risk/could-not-verify table or explicit per-check verdicts.",
+          "reasoning": "While there is some structure (numbered risks), each item isn't explicitly tagged with a pass/risk/could-not-verify status; it's narrative risk descriptions, not a checklist of individual verified checks.",
+          "confidence": "high"
+        },
+        {
+          "text": "Checks that could not be verified are reported as unverified rather than silently treated as passing",
+          "evaluator": "llm",
+          "passed": false,
+          "evidence": "The response states 'The cluster itself is healthy and stable' without listing what was or wasn't verified; items like deep health checks or capacity reservation are not mentioned as unverified, they are simply omitted.",
+          "reasoning": "There's no explicit acknowledgment of unverified checks; omission is not the same as reporting something as unverified, so this fails to demonstrate the assertion's substance.",
+          "confidence": "medium"
+        },
+        {
+          "text": "The cluster's automatic node recovery configuration is reported as a named setting",
+          "evaluator": "llm",
+          "passed": false,
+          "evidence": "The response says 'Automatic recovery will replace a failed node' but never names the specific HyperPod setting (e.g., 'OnNodeFailure' or automatic node recovery flag) or confirms its configuration state explicitly as a named parameter.",
+          "reasoning": "It references the concept of automatic recovery informally but does not cite it as a named, confirmed configuration setting from the cluster.",
+          "confidence": "high"
+        },
+        {
+          "text": "Whether deep health checks are enabled on the cluster is reported",
+          "evaluator": "llm",
+          "passed": false,
+          "evidence": "There is no mention of deep health checks anywhere in the response.",
+          "reasoning": "Deep health check status is completely absent from the output.",
+          "confidence": "high"
+        },
+        {
+          "text": "A per-check result keyword is used",
+          "evaluator": "regex",
+          "passed": true,
+          "evidence": "Matched 'risk'"
+        },
+        {
+          "text": "The cluster under review is named",
+          "evaluator": "regex",
+          "passed": true,
+          "evidence": "Matched 'skilltest-hp-slurm'"
+        }
+      ],
+      "summary": {
+        "passed": 2,
+        "failed": 6,
+        "errored": 0,
+        "low_confidence": 0,
+        "total": 8,
+        "pass_rate": 0.25
+      }
+    }
+  },
+  "metrics": {
+    "runtime": "1m30s",
+    "cost": "$0.75",
+    "context_window": {
+      "utilization": "3.9%",
+      "compaction_count": 0
+    }
+  }
+}

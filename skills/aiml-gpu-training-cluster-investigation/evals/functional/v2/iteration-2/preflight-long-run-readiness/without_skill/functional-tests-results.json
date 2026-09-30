@@ -1,0 +1,92 @@
+{
+  "version": "v2",
+  "iteration": 2,
+  "eval_id": "preflight-long-run-readiness",
+  "run_type": "without_skill",
+  "success": true,
+  "error": null,
+  "understanding_agent_space_skill": null,
+  "tests": {
+    "trigger": null,
+    "expected_output": {
+      "result": "failed",
+      "reasoning": "Invalid result value from model: '\n<parameter name=\"reasoning\">The expected output requires a comprehensive readiness checklist covering: (1) reserved capacity vs. four-day run length, (2) spare capacity to replace a failed node, (3) NodeRecovery setting, (4) whether deep health checks are enabled, and (5) whether GPU error logging is arriving so failures would be visible during the run \u2014 each explicitly marked as pass/risk/could-not-verify with supporting evidence, and unverified items called out rather than assumed to pass.\n\nThe agent's response only partially covers this:\n- NodeRecovery setting: mentioned (\"Auto node recovery is on\") - covered as pass.\n- Cluster health/instance groups: covered generally.\n- FSx durability: raised as a risk (this is a good catch, but not explicitly requested in the expected output, though it's a reasonable addition).\n- CloudWatch alarms noise: covered.\n\nHowever, the response is missing several explicitly required checks:\n- Reserved capacity vs. four-day run length: NOT addressed at all. The agent never verifies whether the reserved instance/capacity block covers the four-day duration.\n- Spare capacity to replace a failed node: NOT addressed. The agent claims auto node recovery will replace unhealthy nodes but does not verify whether spare capacity exists in the reservation to do so.\n- Deep health checks enabled: NOT mentioned at all.\n- GPU error logging arriving (visibility of failures during run): NOT addressed \u2014 the agent even offers to check \"GPU/EFA health metrics\" as a follow-up action rather than reporting on it now, which is the opposite of what's expected (it should already have checked and reported pass/risk/could-not-verify).\n\nAdditionally, the expected output format requires each check to explicitly report pass/risk/could-not-verify with evidence, and unverified items should be named as such. The agent's response does not use this structured pass/risk/could-not-verify framework, and it does not name items that could not be verified \u2014 instead of saying \"GPU error logging could not be verified,\" it defers to a follow-up question, treating it as optional additional work rather than an unresolved risk in the current readiness assessment.\n\nOverall, the response captures cluster health and NodeRecovery, and raises a valid FSx risk, but it misses several core required checks (capacity reservation vs. run length, spare capacity for node replacement, deep health checks, GPU error logging visibility) and does not use the required pass/risk/could-not-verify reporting structure with unverified items explicitly named. This constitutes a substantial gap from the expected output.'. No reasoning provided.",
+      "evidence": "\"Cluster `InService`, all 3 instance groups healthy and up-to-date, no failed/pending nodes... Auto node recovery is on, so Slurm will replace unhealthy nodes mid-run\" \u2014 no mention of reserved capacity duration, spare capacity for node replacement, deep health checks, or GPU error logging status; instead the agent offers to check \"GPU/EFA health metrics over the past few days\" as a future action rather than reporting it as a could-not-verify item now.",
+      "confidence": "high"
+    },
+    "assertions": {
+      "assertion_results": [
+        {
+          "text": "The run length is compared against reserved capacity, or the response states explicitly that no capacity reservation was found",
+          "evaluator": "llm",
+          "passed": false,
+          "evidence": "The response never mentions capacity reservation or reserved capacity at all; it discusses cluster health, FSx, and CloudWatch alarms but nothing about EC2 capacity reservations for the 4-day run.",
+          "confidence": "high"
+        },
+        {
+          "text": "Whether GPU error logging is arriving is treated as a readiness item, so a failure during the run would be visible",
+          "evaluator": "llm",
+          "passed": false,
+          "evidence": "There is no mention of GPU error logging, whether GPU metrics/logs are being ingested, or any readiness check tied to log/metric delivery. The agent only offers as a follow-up: 'Want me to check GPU/EFA health metrics over the past few days for early degradation signs' but does not treat log arrival itself as a checked readiness item.",
+          "confidence": "high"
+        },
+        {
+          "text": "Checks are reported individually with a pass, risk, or could-not-verify result each, rather than as undifferentiated prose",
+          "evaluator": "llm",
+          "passed": false,
+          "evidence": "The output is organized in three prose paragraphs/bullets ('Ready', 'Fix first', 'Just noise, not a blocker') rather than a structured list of individual checks each explicitly labeled pass/risk/could-not-verify. While there is some bucketing, it's not a per-check itemized report with each check individually resolved to one of the three statuses; e.g., instance groups, auto recovery, deep health checks, capacity reservation are lumped together under 'Ready' without individual verification status.",
+          "confidence": "medium"
+        },
+        {
+          "text": "Checks that could not be verified are reported as unverified rather than silently treated as passing",
+          "evaluator": "llm",
+          "passed": false,
+          "evidence": "No checks are explicitly flagged as 'could not verify' or 'unverified' anywhere in the response. Items like capacity reservation, deep health checks, and GPU log ingestion are simply omitted rather than being called out as unverified, which risks them being silently treated as fine (e.g., 'No recent changes that could destabilize it' is stated as fact rather than flagged as unverified).",
+          "confidence": "medium"
+        },
+        {
+          "text": "The cluster's automatic node recovery configuration is reported as a named setting",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "The response explicitly names the setting: 'Auto node recovery is on, so Slurm will replace unhealthy nodes mid-run without you having to intervene.'",
+          "confidence": "high"
+        },
+        {
+          "text": "Whether deep health checks are enabled on the cluster is reported",
+          "evaluator": "llm",
+          "passed": false,
+          "evidence": "The response never mentions deep health checks or whether they are enabled on the cluster; this configuration item is absent from the entire output.",
+          "confidence": "high"
+        },
+        {
+          "text": "A per-check result keyword is used",
+          "evaluator": "regex",
+          "passed": true,
+          "evidence": "Matched 'risk'"
+        },
+        {
+          "text": "The cluster under review is named",
+          "evaluator": "regex",
+          "passed": false,
+          "evidence": "Pattern not found in the output"
+        }
+      ],
+      "summary": {
+        "passed": 2,
+        "failed": 6,
+        "errored": 0,
+        "low_confidence": 0,
+        "total": 8,
+        "pass_rate": 0.25
+      }
+    }
+  },
+  "metrics": {
+    "runtime": "1m18s",
+    "cost": "$0.65",
+    "context_window": {
+      "utilization": "3.9%",
+      "compaction_count": 0
+    }
+  }
+}

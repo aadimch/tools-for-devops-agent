@@ -1,0 +1,42 @@
+[
+  {
+    "agentSpaceId": "fc1ca565-3e09-4ccc-8d3e-823d5508f910",
+    "executionId": "86aee1a7-714a-4204-bdc5-6968b897add7",
+    "recordId": "0c71789a-89cc-495c-b719-4f2515301841",
+    "content": "{\"id\": \"0c71789a-89cc-495c-b719-4f2515301841\", \"role\": \"user\", \"content\": [{\"text\": \"What is the difference between an Application Load Balancer and a Network Load Balancer?\", \"type\": \"text\"}], \"created_at\": null}",
+    "createdAt": "2026-09-28T13:41:08.172000-06:00",
+    "recordType": "message"
+  },
+  {
+    "agentSpaceId": "fc1ca565-3e09-4ccc-8d3e-823d5508f910",
+    "executionId": "86aee1a7-714a-4204-bdc5-6968b897add7",
+    "recordId": "1d235fd8-20fc-4588-9981-736dfa616e2c",
+    "content": "{\"id\": \"e14d12a6-a390-4df0-a94f-4bad4e13a700\", \"role\": \"assistant\", \"content\": [{\"type\": \"chat_title\", \"title\": \"Application Load Balancer vs Network Load Balancer\"}]}",
+    "createdAt": "2026-09-28T13:41:08.730000-06:00",
+    "recordType": "chat_title"
+  },
+  {
+    "agentSpaceId": "fc1ca565-3e09-4ccc-8d3e-823d5508f910",
+    "executionId": "86aee1a7-714a-4204-bdc5-6968b897add7",
+    "recordId": "08e8991f-ccc8-4a3f-b2ea-6f964ca77276",
+    "content": "{\"metadata\": {\"version\": \"0.1\"}, \"data\": {\"context_window\": {\"utilization\": 3.6, \"compaction_count\": 0}}}",
+    "createdAt": "2026-09-28T13:41:16.548000-06:00",
+    "recordType": "utilization"
+  },
+  {
+    "agentSpaceId": "fc1ca565-3e09-4ccc-8d3e-823d5508f910",
+    "executionId": "86aee1a7-714a-4204-bdc5-6968b897add7",
+    "recordId": "d5d7e124-53d7-48de-95c7-8b623030489f",
+    "content": "{\"id\": \"d5d7e124-53d7-48de-95c7-8b623030489f\", \"role\": \"assistant\", \"content\": [{\"text\": \"The two AWS load balancer types operate at different layers and are built for different use cases:\\n\\n**Application Load Balancer (ALB)**\\n- Operates at Layer 7 (application/HTTP layer)\\n- Routes traffic based on content \\u2014 URL paths, hostnames, headers, query strings\\n- Good for microservices, container-based apps, and anything needing advanced routing (e.g., path-based or host-based routing across multiple target groups)\\n- Supports HTTP/HTTPS/gRPC\\n- Can do things like redirects, fixed responses, and authentication (via Cognito or OIDC) at the load balancer level\\n\\n**Network Load Balancer (NLB)**\\n- Operates at Layer 4 (transport layer \\u2014 TCP/UDP/TLS)\\n- Routes based on IP protocol data, without inspecting the actual request content\\n- Built for extreme performance: very low latency, can handle millions of requests per second, and supports static IP addresses / Elastic IPs per Availability Zone\\n- Good fit for latency-sensitive apps, non-HTTP protocols, or when clients need a fixed IP to whitelist\\n\\n**In short:** reach for ALB when you need smart, content-aware routing for web applications; reach for NLB when you need raw speed, static IPs, or non-HTTP protocol support (like TCP-based services, gaming, or IoT).\\n\\nLet me know if you want to dig into pricing differences, health check behavior, or how either integrates with your specific setup.\", \"type\": \"text\"}], \"created_at\": null}",
+    "createdAt": "2026-09-28T13:41:16.630000-06:00",
+    "recordType": "message"
+  },
+  {
+    "agentSpaceId": "fc1ca565-3e09-4ccc-8d3e-823d5508f910",
+    "executionId": "86aee1a7-714a-4204-bdc5-6968b897add7",
+    "recordId": "8761ba94-64bf-45e3-a200-92c2dc2b5ced",
+    "content": "{\"id\": \"20446edc-53d7-450f-8f60-48537b2f32ff\", \"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"The two AWS load balancer types operate at different layers and are built for different use cases:\\n\\n**Application Load Balancer (ALB)**\\n- Operates at Layer 7 (application/HTTP layer)\\n- Routes traffic based on content \\u2014 URL paths, hostnames, headers, query strings\\n- Good for microservices, container-based apps, and anything needing advanced routing (e.g., path-based or host-based routing across multiple target groups)\\n- Supports HTTP/HTTPS/gRPC\\n- Can do things like redirects, fixed responses, and authentication (via Cognito or OIDC) at the load balancer level\\n\\n**Network Load Balancer (NLB)**\\n- Operates at Layer 4 (transport layer \\u2014 TCP/UDP/TLS)\\n- Routes based on IP protocol data, without inspecting the actual request content\\n- Built for extreme performance: very low latency, can handle millions of requests per second, and supports static IP addresses / Elastic IPs per Availability Zone\\n- Good fit for latency-sensitive apps, non-HTTP protocols, or when clients need a fixed IP to whitelist\\n\\n**In short:** reach for ALB when you need smart, content-aware routing for web applications; reach for NLB when you need raw speed, static IPs, or non-HTTP protocol support (like TCP-based services, gaming, or IoT).\\n\\nLet me know if you want to dig into pricing differences, health check behavior, or how either integrates with your specific setup.\"}]}",
+    "createdAt": "2026-09-28T13:41:16.723000-06:00",
+    "recordType": "final_response"
+  }
+]

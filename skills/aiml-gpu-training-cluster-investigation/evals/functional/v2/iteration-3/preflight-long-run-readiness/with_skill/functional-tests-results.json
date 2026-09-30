@@ -1,0 +1,103 @@
+{
+  "version": "v2",
+  "iteration": 3,
+  "eval_id": "preflight-long-run-readiness",
+  "run_type": "with_skill",
+  "success": true,
+  "error": null,
+  "understanding_agent_space_skill": null,
+  "tests": {
+    "trigger": {
+      "result": "passed",
+      "message": "Skill 'aiml-gpu-training-cluster-investigation' was triggered as expected",
+      "skill_loads_found": 3,
+      "warning": "Skill 'aiml-gpu-training-cluster-investigation' was triggered 3 times"
+    },
+    "expected_output": {
+      "result": "passed",
+      "reasoning": "The agent's response covers all the required checks from the expected output:\n\n1. **Reserved capacity vs. four-day run length**: Explicitly addressed - \"no Capacity Block or training plan, so there's no fixed capacity end-time to worry about for a 96-hour run.\"\n\n2. **Spare capacity to replace a failed node**: Explicitly flagged as unverified - \"Spare capacity to replace a failed node is unverified. There's no reservation backing this cluster, so replacement depends on regional on-demand capacity for these instance types at the time of failure \u2014 nothing wrong today, just nothing guaranteeing it either.\"\n\n3. **NodeRecovery setting**: Addressed and marked as pass - \"NodeRecovery: Automatic \u2014 failed nodes get rebooted/replaced automatically\" with a caveat about job configuration.\n\n4. **Deep health checks enabled**: Flagged as a RISK - \"No deep health checks configured on the GPU groups (RISK)... Fix: enable OnStartDeepHealthChecks.\"\n\n5. **GPU error logging arriving/visibility**: Addressed with nuance - GPU fault visibility via HMA is marked as clean/pass (\"both nodes have proven, gap-free log coverage over the last 76+ hours\"), but kernel/NCCL log visibility is marked UNVERIFIED explicitly.\n\nThe response uses a clear pass/risk/unverified framework (RISK, UNVERIFIED, \"already clean\" for pass items), provides evidence for each (e.g., specific health check settings, log coverage duration, prior Xid detection), and explicitly names items that could not be verified rather than assuming they pass (deep health checks risk, spare capacity unverified, kernel/NCCL log visibility unverified). It also gives an overall readiness verdict (\"the cluster is ready with a couple of things worth fixing first\") and lists what to fix first in priority order.\n\nThis substantively matches the expected output criteria very well.",
+      "evidence": "\"No deep health checks configured on the GPU groups (RISK)... Spare capacity to replace a failed node is unverified... NodeRecovery: Automatic \u2014 failed nodes get rebooted/replaced automatically... GPU fault visibility via HMA \u2014 both nodes have proven, gap-free log coverage... No deep health checks configured... No independent kernel/NCCL log visibility (UNVERIFIED)\"",
+      "confidence": "high"
+    },
+    "assertions": {
+      "assertion_results": [
+        {
+          "text": "The run length is compared against reserved capacity, or the response states explicitly that no capacity reservation was found",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"no Capacity Block or training plan, so there's no fixed capacity end-time to worry about for a 96-hour run\" and \"There's no reservation backing this cluster, so replacement depends on regional on-demand capacity for these instance types at the time of failure\"",
+          "reasoning": "The response explicitly states no capacity reservation exists and reasons about run length against that fact.",
+          "confidence": "high"
+        },
+        {
+          "text": "Whether GPU error logging is arriving is treated as a readiness item, so a failure during the run would be visible",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"No independent kernel/NCCL log visibility (UNVERIFIED)... anything HMA doesn't flag as hardware would be invisible for troubleshooting... Worth shipping /var/log/messages before the run if you want that safety net.\"",
+          "reasoning": "The agent treats GPU error/log visibility as a readiness item, explicitly flagging that some failures might be invisible without extra logging.",
+          "confidence": "high"
+        },
+        {
+          "text": "Checks are reported individually with a pass, risk, or could-not-verify result each, rather than as undifferentiated prose",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"1. No deep health checks configured on the GPU groups (RISK).\" \"2. No independent kernel/NCCL log visibility (UNVERIFIED).\" \"3. Spare capacity to replace a failed node is unverified.\" and clean items listed as bullets: \"NodeRecovery: Automatic...\", \"GPU fault visibility via HMA...\", \"No cluster alarms in ALARM state...\"",
+          "reasoning": "The response lists numbered items each tagged with a status (RISK, UNVERIFIED, unverified) plus a separate 'What's already clean' section listing passes individually, rather than one undifferentiated paragraph.",
+          "confidence": "medium"
+        },
+        {
+          "text": "Checks that could not be verified are reported as unverified rather than silently treated as passing",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"No independent kernel/NCCL log visibility (UNVERIFIED)\" and \"Spare capacity to replace a failed node is unverified.\"",
+          "reasoning": "Items 2 and 3 are explicitly labeled UNVERIFIED/unverified rather than assumed to pass.",
+          "confidence": "high"
+        },
+        {
+          "text": "The cluster's automatic node recovery configuration is reported as a named setting",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"NodeRecovery is `Automatic`, which is good\" and in the clean list: \"NodeRecovery: Automatic \u2014 failed nodes get rebooted/replaced automatically\"",
+          "reasoning": "NodeRecovery is explicitly named as a setting with its value.",
+          "confidence": "high"
+        },
+        {
+          "text": "Whether deep health checks are enabled on the cluster is reported",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"No deep health checks configured on the GPU groups (RISK). gpu-g5-xl and gpu-g5-2xl have no OnStartDeepHealthChecks set.\"",
+          "reasoning": "Deep health check status is explicitly reported as not configured on the GPU groups.",
+          "confidence": "high"
+        },
+        {
+          "text": "A per-check result keyword is used",
+          "evaluator": "regex",
+          "passed": true,
+          "evidence": "Matched 'RISK'"
+        },
+        {
+          "text": "The cluster under review is named",
+          "evaluator": "regex",
+          "passed": true,
+          "evidence": "Matched 'skilltest-hp-slurm'"
+        }
+      ],
+      "summary": {
+        "passed": 8,
+        "failed": 0,
+        "errored": 0,
+        "low_confidence": 0,
+        "total": 8,
+        "pass_rate": 1.0
+      }
+    }
+  },
+  "metrics": {
+    "runtime": "3m37s",
+    "cost": "$1.80",
+    "context_window": {
+      "utilization": "7.6%",
+      "compaction_count": 0
+    }
+  }
+}

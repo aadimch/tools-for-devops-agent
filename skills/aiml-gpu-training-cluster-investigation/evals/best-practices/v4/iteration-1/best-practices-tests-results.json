@@ -1,0 +1,164 @@
+{
+  "version": "v4",
+  "iteration": 1,
+  "timestamp": "2026-09-30T19:18:46Z",
+  "test_type": "best-practices",
+  "passing_score": 100,
+  "score": 100,
+  "result": "passed",
+  "summary": {
+    "total": 17,
+    "passed": 14,
+    "failed": 0,
+    "skipped": 3,
+    "warning": 0,
+    "errored": 0,
+    "low_confidence": 0,
+    "avg_confidence": "high"
+  },
+  "tests": [
+    {
+      "id": "BP-01",
+      "name": "Effective description",
+      "result": "passed",
+      "confidence": "high",
+      "reasoning": "The description begins with 'Use this skill for...' which is imperative phrasing directed at the agent. It focuses on the scenarios/user situations (GPU training clusters, Xid/ECC errors, slow training, NCCL hangs, nodes in Failure/Pending, readiness questions) rather than internal implementation mechanics, and explicitly lists numerous trigger contexts ('Activate on Xid or ECC errors, slow training or FSx for Lustre slowness...'). It is a dense but bounded paragraph covering scope without being excessively long relative to the skill's complexity.",
+      "evidence": "Use this skill for GPU training or inference clusters on SageMaker HyperPod (Slurm or EKS), ParallelCluster, or self-managed EC2/EKS GPU instances. ... Activate on Xid or ECC errors, slow training or FSx for Lustre slowness on a GPU cluster, NCCL hangs or TCP fallback, NVLink or Fabric Manager errors, nodes in Failure or Pending, nodes terminating at once, or \"is my cluster ready for a multi-day run\".",
+      "agent_skills_spec_reference": "https://agentskills.io/skill-creation/optimizing-descriptions"
+    },
+    {
+      "id": "BP-02",
+      "name": "Verbosity and conciseness",
+      "result": "passed",
+      "confidence": "high",
+      "reasoning": "The body is dense with domain-specific, non-obvious procedures (API call names, exact parameters, thresholds, edge cases) rather than explaining general concepts the agent already knows. There is no filler explaining basic AWS or GPU concepts.",
+      "evidence": "R3. Query CloudTrail by event name, not by instance ID: cloudtrail.LookupEvents with LookupAttributes=[{AttributeKey: EventName, AttributeValue: BatchReplaceClusterNodes}]...",
+      "agent_skills_spec_reference": "https://agentskills.io/skill-creation/best-practices#add-what-the-agent-lacks-omit-what-it-knows"
+    },
+    {
+      "id": "BP-03",
+      "name": "Detailed reference materials must not be in body",
+      "result": "passed",
+      "confidence": "high",
+      "reasoning": "Detailed reference material (Xid catalogs, metric thresholds, coverage query logic, preflight checks) is consistently moved to references/ files and loaded conditionally via read_skill_resource calls rather than embedded inline in the body.",
+      "evidence": "Load [references/xid-triage.md](references/xid-triage.md) for the Xid catalog and per-code verdicts, and [references/incident-branches.md](references/incident-branches.md) for the node verdict evidence bar and branches A to F",
+      "agent_skills_spec_reference": "https://agentskills.io/skill-creation/best-practices#structure-large-skills-with-progressive-disclosure"
+    },
+    {
+      "id": "BP-04",
+      "name": "Reference files must be linked",
+      "result": "passed",
+      "confidence": "high",
+      "reasoning": "All nine reference files in references/ are linked with markdown link syntax in the body.",
+      "evidence": "[references/inventory-and-timeline.md](references/inventory-and-timeline.md), [references/cluster-edge-cases.md](references/cluster-edge-cases.md), [references/coverage-audit.md](references/coverage-audit.md), etc. are all linked."
+    },
+    {
+      "id": "BP-05",
+      "name": "Reference links must specify when to load",
+      "result": "passed",
+      "confidence": "high",
+      "reasoning": "Each reference link is tied to a specific step/condition explaining why and when to load it, not a generic 'see for details' phrasing.",
+      "evidence": "Load [references/coverage-audit.md](references/coverage-audit.md) for the log-source discovery and hourly coverage queries, and [references/nccl-nvlink-efa.md](references/nccl-nvlink-efa.md) for NCCL transport, NVLink and NVSwitch, and EFA signals",
+      "agent_skills_spec_reference": "https://agentskills.io/skill-creation/best-practices#structure-large-skills-with-progressive-disclosure"
+    },
+    {
+      "id": "BP-06",
+      "name": "Reference path format",
+      "result": "passed",
+      "confidence": "high",
+      "reasoning": "All reference file paths use simple relative paths of the form references/<filename>.md with no absolute paths or traversals.",
+      "evidence": "[references/preflight.md](references/preflight.md)",
+      "agent_skills_spec_reference": "https://agentskills.io/specification#file-references"
+    },
+    {
+      "id": "BP-07",
+      "name": "Prescription vs description",
+      "result": "passed",
+      "confidence": "medium",
+      "reasoning": "Fragile, high-stakes operations (CloudTrail queries, coverage proofs, Capacity Block timing math) are given exact prescriptive steps, while judgment-based tasks like scoping and branch selection leave room for agent reasoning with explained rationale (e.g., R7's discussion of why correlation isn't causation).",
+      "evidence": "R9. Capacity Blocks begin terminating instances 30 minutes before the end time (60 for UltraServers)... Give every value as a full UTC date and time, and check the latest safe start is not already in the past.",
+      "agent_skills_spec_reference": "https://agentskills.io/skill-creation/best-practices#match-specificity-to-fragility"
+    },
+    {
+      "id": "BP-08",
+      "name": "Defaults, not menus",
+      "result": "passed",
+      "confidence": "medium",
+      "reasoning": "Where multiple sources/tools are mentioned (e.g., GPU metrics from AWS/EC2 vs CWAgent), a clear default is given with an alternative noted briefly; no menu of undifferentiated options is presented.",
+      "evidence": "Pull FSx (correct dimensions per metric), GPU activity (`AWS/EC2` `GPUPowerUtilization`, unit Percent, or `CWAgent`), and EFA counters",
+      "agent_skills_spec_reference": "https://agentskills.io/skill-creation/best-practices#provide-defaults-not-menus"
+    },
+    {
+      "id": "BP-09",
+      "name": "Favor procedures over declarations",
+      "result": "passed",
+      "confidence": "high",
+      "reasoning": "The skill teaches a generalizable investigative approach (scope, inventory, coverage audit, classify, root-cause branch, report, self-check) applicable to any cluster/incident, not a one-off declaration for a specific instance.",
+      "evidence": "- [ ] Step 1: Scope the request \u2014 account, region, cluster or instance IDs, impact window",
+      "agent_skills_spec_reference": "https://agentskills.io/skill-creation/best-practices#favor-procedures-over-declarations"
+    },
+    {
+      "id": "BP-10",
+      "name": "Gotchas section",
+      "result": "passed",
+      "confidence": "medium",
+      "reasoning": "While there isn't a section literally titled 'Gotchas', the R1-R10 critical rules function as an extensive gotchas/pitfalls list documenting non-obvious environment-specific facts (e.g., node identity survives replacement, kernel log going quiet doesn't mean logging stopped, utilization metrics already in percent).",
+      "evidence": "R3. Node identity survives replacement. A HyperPod reboot keeps the instance ID; a replace gives the node a new instance ID in the same instance group, so the current ID will never appear in the replace request.",
+      "agent_skills_spec_reference": "https://agentskills.io/skill-creation/best-practices#gotchas-sections"
+    },
+    {
+      "id": "BP-11",
+      "name": "Templates and outputs missing",
+      "result": "passed",
+      "confidence": "high",
+      "reasoning": "The skill's purpose clearly involves generating a structured report, and it provides this via a dedicated reference file loaded conditionally rather than omitting it.",
+      "evidence": "Load [references/report-format.md](references/report-format.md) for the report template and its rules",
+      "agent_skills_spec_reference": "https://agentskills.io/skill-creation/best-practices#templates-for-output-format"
+    },
+    {
+      "id": "BP-12",
+      "name": "Templates and outputs must not be in body",
+      "result": "passed",
+      "confidence": "high",
+      "reasoning": "The body does not contain an inline output template; the full report template is offloaded to references/report-format.md and loaded conditionally at Step 6.",
+      "evidence": "Load [references/report-format.md](references/report-format.md) for the report template and its rules",
+      "agent_skills_spec_reference": "https://agentskills.io/skill-creation/best-practices#templates-for-output-format"
+    },
+    {
+      "id": "BP-13",
+      "name": "Asset files must be linked",
+      "result": "skipped",
+      "message": "No files in assets/, so this test does not apply"
+    },
+    {
+      "id": "BP-14",
+      "name": "Asset links must specify when to load",
+      "result": "skipped",
+      "message": "No files in assets/, so this test does not apply"
+    },
+    {
+      "id": "BP-15",
+      "name": "Asset path format",
+      "result": "skipped",
+      "message": "No files in assets/, so this test does not apply"
+    },
+    {
+      "id": "BP-16",
+      "name": "Step-by-step guidance",
+      "result": "passed",
+      "confidence": "high",
+      "reasoning": "The procedure is presented as a checkbox checklist with Step N labels, and the detailed sections below (## Step 1, ## Step 2, etc.) reference the same step numbers, satisfying the required format.",
+      "evidence": "- [ ] Step 1: Scope the request \u2014 account, region, cluster or instance IDs, impact window\n- [ ] Step 2: Build the inventory, capability profile, and one ordered timeline\n...\n## Step 1: Scope\n## Step 2: Inventory and timeline",
+      "agent_skills_spec_reference": "https://agentskills.io/skill-creation/best-practices#checklists-for-multi-step-workflows"
+    },
+    {
+      "id": "BP-17",
+      "name": "Validation loops",
+      "result": "passed",
+      "confidence": "high",
+      "reasoning": "The skill includes an explicit Step 7 self-check with a checklist verifying coverage claims, verdicts, headline consistency, cause labeling, and percentage accuracy before presenting output to the user.",
+      "evidence": "Before showing the answer to the user, re-read your own draft and verify each of these. Fix the draft where a check fails; do not present an output that fails one.",
+      "agent_skills_spec_reference": "https://agentskills.io/skill-creation/best-practices#validation-loops"
+    }
+  ]
+}

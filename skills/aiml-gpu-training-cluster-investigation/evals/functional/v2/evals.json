@@ -44,7 +44,7 @@
     {
       "id": "gpu-log-coverage-audit",
       "task_type": "chat",
-      "prompt": "We run GPU training on an AWS ParallelCluster called distributed-training-triage-b200 in us-west-2. Were there any NVIDIA Xid or GPU errors on the compute nodes over the last seven days? I need to be sure before we blame the application.",
+      "prompt": "We run GPU training on an AWS ParallelCluster called distributed-training-triage-b200 in us-west-2. Were there any NVIDIA Xid or GPU errors on the compute nodes over the last three days? I need to be sure before we blame the application.",
       "expected_output": "Before answering, establishes whether kernel-level GPU logging was actually arriving from each compute node over the window. Discovers the relevant log groups, including the customer's own kernel log group whose name does not begin with /aws/parallelcluster, identifies which stream carries kernel messages per node, and reports per node whether that stream was live across the window. Distinguishes 'no Xid errors found in a proven-live log' from 'not observable because no kernel lines were arriving', and does not report an absence of Xids from a silent or missing stream as a healthy GPU.",
       "should_trigger": true,
       "assertions": [
