@@ -2,46 +2,48 @@
 
 ## 1.0.2
 
-Verified the 1.0.1 Blackwell content against a live `p6-b300.48xlarge` (8 x NVIDIA B300
-SXM6 AC, driver 595.91.07, CUDA 13.2) rather than leaving it documentation-only. Four
-field-name corrections and three false-positive traps came out of it.
+The Blackwell content added in 1.0.1 came from the NVIDIA catalog alone, so it was checked
+against a real `p6-b300.48xlarge`: 8 x NVIDIA B300 SXM6 AC, driver 595.91.07, CUDA 13.2.
+That turned up four wrong or vague field names and three readings that look like faults on
+a perfectly healthy node.
 
-- Xid 48 rule 6 now quotes the real `nvidia-smi -q -d ECC` field names instead of
-  describing them: `SRAM Threshold Exceeded` (under `Aggregate`, the RMA gate),
-  `SRAM Uncorrectable Parity` and `SRAM Uncorrectable SEC-DED` (two counters, not one),
-  `DRAM Uncorrectable`, and the `Aggregate Uncorrectable SRAM Sources` breakdown
-  (L2 / SM / Microcontroller / PCIE / Other) that locates the faulting unit.
-- Added three verified signals that were missing: `Unrepairable Memory: Yes` (REPLACE, the
-  same condition Xid 157 reports from the other side), `Channel Repair Pending` and
-  `TPC Repair Pending` (REBOOT, a staged but unapplied repair), and the
-  `Bank Remap Availability Histogram` as a pre-failure signal, since exhausted remap
-  capacity is what later surfaces as a remap failure or Xid 157.
-- Confirmed Xid 171/172 are available in practice: the current Deep Learning AMI ships
-  driver 595.91.07, well past the R565 the catalog pairs them with.
-- Replaced the NVLink error-counter names with the ones the driver actually emits. The
-  older `Replay Errors` / `Recovery Errors` / `CRC Errors` do **not** exist on 595.91.07;
-  the real counters are `Malformed packet Errors`, `Buffer overrun Errors`, `Rx Errors`,
-  `Rx remote Errors`, `Rx General Errors`, `Local link integrity Errors`, `Tx discards`,
-  `Link recovery successful/failed/Total events`, `Effective Errors`, `Symbol Errors`.
-- Recorded three readings that look like faults and are not, each of which would have
-  produced a wrong finding: `FEC Errors - 0` is the corrected-codeword counter and read
-  36,140,749,276 at boot; `Effective BER` and `Symbol BER` read `15e-255`, the
-  floating-point floor rather than a high rate; and `Raw Errors` / `Raw BER` per lane were
-  non-zero on a healthy node, so they are never evidence on their own.
-- Added the `Fabric` section fields as the clearest fabric health check
-  (`State: Completed`, `Status: Success`, `CliqueId`, `GPU Fabric GUID`), in preference to
-  parsing Fabric Manager log lines.
-- Documented that InfiniBand device count is not an EFA check on Blackwell. A B300 launched
-  with no EFA interface still showed `ibp198s0f0` and `ibp199s0f0`, which are ConnectX
-  bridge devices (`mlx5_core`, firmware 28.47.2526) used for NVLink subnet management.
-- Documented that the 1800 GB/s NVSwitch figure is bidirectional while `nvidia-smi` reports
-  per-link unidirectional (`NV18` at 53.125 GB/s, so 956.25 GB/s per direction), so the
-  two must not be divided against each other to infer a degraded fabric.
+- Rule 6 now quotes the `nvidia-smi -q -d ECC` fields by name rather than describing them:
+  `SRAM Threshold Exceeded`, which sits under `Aggregate` and is the RMA gate;
+  `SRAM Uncorrectable Parity` and `SRAM Uncorrectable SEC-DED`, which are two counters and
+  not one; `DRAM Uncorrectable`; and the `Aggregate Uncorrectable SRAM Sources` breakdown
+  across L2, SM, microcontroller, PCIE and other, which tells you which unit failed.
+- Three signals were missing entirely. `Unrepairable Memory: Yes` is a REPLACE, and is the
+  same situation Xid 157 reports from the driver side. `Channel Repair Pending` and
+  `TPC Repair Pending` mean a repair is queued but not applied, so REBOOT. The
+  `Bank Remap Availability Histogram` is a genuine early warning, because running out of
+  remap capacity is what eventually shows up as a remap failure or an Xid 157.
+- Xid 171 and 172 turn out to be available in practice. The current Deep Learning AMI ships
+  595.91.07, comfortably past the R565 the catalog pairs them with.
+- The NVLink error-counter names were wrong. `Replay Errors`, `Recovery Errors` and
+  `CRC Errors` do not exist on 595.91.07. What the driver actually emits is
+  `Malformed packet Errors`, `Buffer overrun Errors`, `Rx Errors`, `Rx remote Errors`,
+  `Rx General Errors`, `Local link integrity Errors`, `Tx discards`,
+  `Link recovery successful/failed/Total events`, `Effective Errors` and `Symbol Errors`.
+- Three healthy readings that would each have produced a wrong finding are now called out.
+  `FEC Errors - 0` counts corrected codewords and stood at 36,140,749,276 at boot.
+  `Effective BER` and `Symbol BER` read `15e-255`, which is the floating-point floor and not
+  a high error rate. `Raw Errors` and `Raw BER` were non-zero per lane on a healthy node, so
+  neither is evidence on its own.
+- Added the `Fabric` section fields, `State: Completed`, `Status: Success`, `CliqueId` and
+  `GPU Fabric GUID`. These are a better fabric health check than reading Fabric Manager log
+  lines.
+- An InfiniBand device count is not an EFA check on Blackwell. A B300 with no EFA interface
+  attached still showed `ibp198s0f0` and `ibp199s0f0`, both ConnectX bridges on `mlx5_core`
+  firmware 28.47.2526, used for NVLink subnet management.
+- The 1800 GB/s NVSwitch figure counts both directions while `nvidia-smi` reports one
+  (`NV18` at 53.125 GB/s, so 956.25 GB/s per direction). Dividing one by the other makes a
+  healthy fabric look half width.
 
 ## 1.0.1
 
-Addresses the TFC SME review on PR #112. Every value below was re-verified against the
-NVIDIA Xid catalog and the live SageMaker API rather than carried over from the review.
+Addresses the TFC SME review on PR #112. Each value below was checked against the NVIDIA
+Xid catalog or the live SageMaker API rather than taken from the review as written, which
+is how the four corrections noted here came up.
 
 - Xid 48 now splits on which memory faulted. Added Xid 171 (`UNCORRECTABLE_DRAM_ERROR`)
   and 172 (`UNCORRECTABLE_SRAM_ERROR`) as qualifiers, plus routing rule 6: DRAM follows the

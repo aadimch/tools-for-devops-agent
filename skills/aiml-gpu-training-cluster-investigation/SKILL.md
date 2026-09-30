@@ -104,17 +104,18 @@ R10. **Rule out the frequent non-GPU causes** in `references/cluster-edge-cases.
    failures and protected mode, EFA nodes in a public subnet, a Capacity Block not yet
    active, and the FSx maintenance window. HyperPod does not export system metrics to
    CloudWatch, so HyperPod GPU activity is `Not observable` there.
-R11. **When the logs are dead, ask the control plane.** On HyperPod with
-   `NodeProvisioningMode = Continuous`, `sagemaker.ListClusterEvents` returns a node and
-   cluster timeline that does not depend on any log agent, so it still answers when a log
-   stream is silent or a node has vanished. Filter with `EventTimeAfter` / `EventTimeBefore`,
-   narrow with `NodeId` or `InstanceGroupName`, sort `SortBy=EventTime`, and paginate on
-   `NextToken`; use `DescribeClusterEvent` for the detail of any event whose `Description` is
-   not self-explanatory. The response carries **no severity or level field**, so classify by
-   `Description` and say the classification is yours, not the API's. On a cluster whose
-   `NodeProvisioningMode` is not `Continuous` the call is unsupported: record
-   `ListClusterEvents not supported` in the coverage table and move on. Never report a dead
-   log as "no events" without having tried this source or stated that it is unavailable.
+R11. **When the logs are dead, ask the control plane.** On a HyperPod cluster with
+   `NodeProvisioningMode = Continuous`, `sagemaker.ListClusterEvents` gives you a node and
+   cluster timeline that owes nothing to a log agent, so it keeps answering when a stream has
+   gone silent or a node has disappeared. Filter the window with `EventTimeAfter` and
+   `EventTimeBefore`, narrow with `NodeId` or `InstanceGroupName`, sort with
+   `SortBy=EventTime`, and page through `NextToken`. Where a `Description` is not
+   self-explanatory, `DescribeClusterEvent` has the detail. Note that the response has no
+   severity or level field at all, so any grouping you apply is your own and should be
+   described that way. If `NodeProvisioningMode` is anything other than `Continuous` the call
+   is not supported; write `ListClusterEvents not supported` in the coverage table and carry
+   on. What you must not do is report a dead log as "no events" without either trying this
+   source or saying it was unavailable.
 
 ## Pick the mode
 
@@ -129,7 +130,7 @@ R11. **When the logs are dead, ask the control plane.** On HyperPod with
 Work through these in order and tick each one as it completes. Skip only the steps the
 mode table excludes. Every step below has a matching `## Step N` section with its detail.
 
-- [ ] Step 1: Scope the request — account, region, cluster or instance IDs, impact window
+- [ ] Step 1: Scope the request: account, region, cluster or instance IDs, impact window
 - [ ] Step 2: Build the inventory, capability profile, and one ordered timeline
 - [ ] Step 3: Prove GPU log coverage per node before looking for errors
 - [ ] Step 4: Classify each fault and give every node a verdict

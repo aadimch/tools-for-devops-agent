@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-09-30T21:58:17Z",
-  "version": "v5",
+  "timestamp": "2026-09-30T22:07:12Z",
+  "version": "v6",
   "model": "us.anthropic.claude-sonnet-5",
   "iterations": 3,
   "avg_confidence": "high",
@@ -31,7 +31,7 @@
         "warning": 0,
         "errored": 0,
         "low_confidence": 0,
-        "avg_confidence": "high"
+        "avg_confidence": "medium"
       },
       {
         "iteration": 3,
@@ -58,7 +58,7 @@
         ],
         "confidences": [
           "high",
-          "high",
+          "medium",
           "high"
         ],
         "avg_confidence": "high",
@@ -74,7 +74,7 @@
         ],
         "confidences": [
           "high",
-          "high",
+          "medium",
           "high"
         ],
         "avg_confidence": "high",
@@ -90,7 +90,7 @@
         ],
         "confidences": [
           "high",
-          "high",
+          "medium",
           "high"
         ],
         "avg_confidence": "high",
@@ -186,7 +186,7 @@
         ],
         "confidences": [
           "high",
-          "high",
+          "medium",
           "high"
         ],
         "avg_confidence": "high",
@@ -202,8 +202,8 @@
         ],
         "confidences": [
           "high",
-          "high",
-          "medium"
+          "medium",
+          "high"
         ],
         "avg_confidence": "high",
         "consistent": true
@@ -217,11 +217,11 @@
           "passed"
         ],
         "confidences": [
-          "medium",
-          "medium",
-          "high"
+          "high",
+          "high",
+          "medium"
         ],
-        "avg_confidence": "medium",
+        "avg_confidence": "high",
         "consistent": true
       },
       {

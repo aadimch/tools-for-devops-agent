@@ -104,11 +104,10 @@ Other GPU memory signals that are not Xids ([AWS Xid troubleshooting](https://re
    | Xid 172 (`UNCORRECTABLE_SRAM_ERROR`) present, or the 48 message names an SRAM unit | SRAM: the reboot-retires-a-page logic does not apply. Check the SRAM DBE threshold flag. If set, the NVIDIA flow is RMA, which on EC2 means REPLACE (stop/start) |
    | Neither 171/172 present and the 48 message does not say | `UNVERIFIED` which memory faulted. Report the 48, say the DRAM/SRAM split could not be determined from the log, and name the one check that resolves it (below). Do not default to REBOOT as if it were DRAM |
 
-   These counters are only readable on the node, so they are outside this skill's
-   read-only API scope. Name them as operator steps and label the verdict
-   `Hypothesis (to validate)` until they are read. Field names below were captured from
-   `nvidia-smi -q -d ECC` on a live `p6-b300.48xlarge` (driver 595.91.07, CUDA 13.2),
-   so quote them exactly rather than paraphrasing:
+   None of these counters are reachable through an AWS API. They live on the node, so ask
+   the operator for them and hold the verdict at `Hypothesis (to validate)` until you have
+   them. The field names below come from `nvidia-smi -q -d ECC` on a live
+   `p6-b300.48xlarge` running driver 595.91.07 with CUDA 13.2. Quote them as they appear:
 
    ```
    ECC Errors
@@ -126,56 +125,66 @@ Other GPU memory signals that are not Xids ([AWS Xid troubleshooting](https://re
        Unrepairable Memory     : No
    ```
 
-   Read it this way:
+   A few notes on reading that output.
 
-   - **`SRAM Threshold Exceeded`** is the literal field the NVIDIA RMA flow turns on. It
-     appears under `Aggregate`, not `Volatile`. `Yes` means REPLACE.
-   - **SRAM uncorrectable is two counters**, `Parity` and `SEC-DED`. Report whichever is
-     non-zero by name; do not sum them into one "SRAM uncorrectable" figure.
-   - **`Aggregate Uncorrectable SRAM Sources`** locates the fault (L2, SM,
-     microcontroller, PCIE, other). Quote the non-zero source, since it is the closest
-     thing to a which-unit answer without the vendor decode.
-   - **`Unrepairable Memory: Yes`** is a REPLACE on its own: the GPU is saying no repair
-     path remains. This is the same condition Xid 157 reports, from the other side.
-   - **`Channel Repair Pending: Yes`** or **`TPC Repair Pending: Yes`** means a repair is
-     staged but not applied, so the verdict is REBOOT, exactly like a pending row remap.
-   - The NSM path (Msg Type `0x3`, Cmd Code `0x7D`, bit 0) is the out-of-band equivalent
-     of `SRAM Threshold Exceeded` where BMC access exists.
+   `SRAM Threshold Exceeded` is the field the RMA flow actually keys on. It only appears
+   under `Aggregate`, so do not go looking for it under `Volatile`. If it says `Yes`, the
+   verdict is REPLACE.
 
-   Xid 171 and 172 need a recent driver (the catalog pairs them with CUDA 12.7 / driver
-   R565), so their absence on an older driver is not evidence of DRAM. Verified present
-   on the current Deep Learning AMI, which ships 595.91.07, so on an up-to-date fleet the
-   split is available rather than theoretical.
+   There are two SRAM uncorrectable counters, `Parity` and `SEC-DED`. Report whichever one
+   is non-zero and call it by name. Adding them together loses the distinction.
+
+   `Aggregate Uncorrectable SRAM Sources` breaks the count down by unit: L2, SM,
+   microcontroller, PCIE, other. Without the vendor decode table this is as close as you
+   get to knowing which part failed, so quote the non-zero one.
+
+   Two fields settle a verdict on their own. `Unrepairable Memory: Yes` means the GPU has
+   run out of repair options, which is REPLACE; Xid 157 describes the same situation from
+   the driver's side. `Channel Repair Pending: Yes` or `TPC Repair Pending: Yes` means a
+   repair is queued but not yet applied, which is REBOOT, the same logic as a pending row
+   remap.
+
+   Where BMC access exists, NSM Msg Type `0x3`, Cmd Code `0x7D`, bit 0 carries the same
+   information as `SRAM Threshold Exceeded` out of band.
+
+   One caveat on driver versions. Xid 171 and 172 only appear on newer drivers; the catalog
+   pairs them with CUDA 12.7 and R565. On anything older, not seeing them tells you nothing
+   about DRAM. The current Deep Learning AMI ships 595.91.07, so a reasonably up-to-date
+   fleet will have them.
 7. **Xid 154 overrides the table.** Its message states the required action, for example
    `Xid 154 GPU recovery action changed from 0x0 (None) to 0x2 (Node Reboot Required)`.
    Values: `None`, `Drain P2P`, `Drain and Reset`, `GPU Reset Required`, `Node Reboot Required`.
    `GPU Reset Required` or `Node Reboot Required` means REBOOT for the node it names.
 8. **Unknown code:** report the raw code and message, mark the classification
    `UNVERIFIED`, and link the NVIDIA catalog. Do not guess.
-9. **Not every NVLink-named Xid is an NVLink fault.** Xid 137 (`NVLINK_PRIV_ERR`) is an
-   illegal peer-to-peer access reported by the remote MMU, and the catalog's immediate
-   action is IGNORE with an application-debug investigatory flow. Classify it with 13 and
-   31, not with 74 or 144 to 150. A headline calling 137 an NVLink hardware error is the
-   same misattribution class as calling an Xid 31 a hardware fault.
-10. **NVLink 5 family, Xid 144 to 150: there is no fixed verdict, and do not invent one.**
-    These exist only on Blackwell (the catalog marks them NO for A100 and H100, YES for
-    B100 and GB200), which is the hardware this skill targets for `p6-b200` and
-    `p6-b300`. All seven route to `WORKFLOW_NVLINK5_ERR`, which states that
-    `<intrInfo>` and `<errorStatus>` "must be decoded and evaluated" against the
-    catalog's "XID 144-150 Decode" table to derive the resolution. That register decode
-    is not reproduced here, so:
+9. **An Xid with NVLink in the name is not automatically an NVLink fault.** Xid 137
+   (`NVLINK_PRIV_ERR`) is an illegal peer-to-peer access that the remote MMU reports, and
+   the catalog's immediate action for it is IGNORE, with an application-debug flow for
+   investigation. It belongs with 13 and 31, not with 74 or the 144 to 150 family. Calling
+   137 a hardware error is the same mistake as calling an Xid 31 one.
+10. **Xid 144 to 150 have no single verdict. Do not make one up.** These are Blackwell
+    only; the catalog marks them NO for A100 and H100 and YES for B100 and GB200, which
+    covers the `p6-b200` and `p6-b300` this skill is aimed at. All seven route to
+    `WORKFLOW_NVLINK5_ERR`, and that bucket says `<intrInfo>` and `<errorStatus>`
+    "must be decoded and evaluated" against the catalog's "XID 144-150 Decode" table
+    before you get a resolution. That table is not reproduced here, so work with what the
+    message itself gives you.
 
-    - Quote the Xid message verbatim. Its fields appear in this order: Xid number, sub
-      component, fatal versus nonfatal, crosscontain, injected, link, then
-      `intrInfo` / `errorStatus` / `errorDebugData` in parentheses.
-    - Report the **sub component**, the **fatal or nonfatal** flag, and the **link**,
-      because those are readable without the decode table.
-    - Verdict: `fatal` on a link that stays down is a REBOOT candidate, and REPLACE if it
-      recurs on the same link after a reboot. `nonfatal` alone is MONITOR.
-    - Mark the precise resolution `UNVERIFIED` pending the register decode, and link the
-      catalog. Never report a bare "NVLink error, replace the node" for these codes.
-    - Correlate with Fabric Manager and `nvidia-smi nvlink` state per
-      `references/nccl-nvlink-efa.md` before asserting a hardware cause.
+    Quote the Xid line as it appears. The fields come in a fixed order: Xid number, sub
+    component, fatal or nonfatal, crosscontain, injected, link, then `intrInfo`,
+    `errorStatus` and `errorDebugData` in parentheses. Of those, the sub component, the
+    fatal flag and the link number are readable without the decode table, so report all
+    three.
+
+    For the verdict, `fatal` on a link that stays down is a REBOOT candidate, and becomes
+    REPLACE if it comes back on the same link after that reboot. A `nonfatal` on its own
+    is MONITOR. Either way, mark the precise resolution `UNVERIFIED` because the register
+    decode is missing, and link the catalog so the operator can finish the job. A bare
+    "NVLink error, replace the node" is never an acceptable output for these codes.
+
+    Before you call it hardware at all, check Fabric Manager and the `nvidia-smi nvlink`
+    state in `references/nccl-nvlink-efa.md`. Several of the counters there read non-zero
+    on healthy nodes, so that section matters.
 
 ## HyperPod node conditions
 
