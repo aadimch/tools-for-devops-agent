@@ -55,6 +55,29 @@ Sources: [NVIDIA Xid catalog](https://docs.nvidia.com/deploy/xid-errors/analyzin
 On-node confirmation for the operator (not available through AWS APIs): NVLink status and
 error counters from `nvidia-smi nvlink` and DCGM, and `systemctl status nvidia-fabricmanager`.
 
+### On-node NVLink and fabric fields, captured from a live p6-b300.48xlarge
+
+Driver 595.91.07, CUDA 13.2, 8 x `NVIDIA B300 SXM6 AC`. Quote these field names exactly.
+They are the operator-side evidence for the NVLink 5 Xid family 144 to 150
+(`references/xid-triage.md` rule 10), which is Blackwell only.
+
+| Command | Healthy reading observed | How to read it |
+|---------|--------------------------|----------------|
+| `nvidia-smi nvlink -s` | `Link <n>: 53.125 GB/s` for every link | A link that is missing, or reads `<inactive>`, is down. Compare the link count across all 8 GPUs; an asymmetry is the fault location |
+| `nvidia-smi nvlink -e` | All zero: `Malformed packet Errors`, `Buffer overrun Errors`, `Rx Errors`, `Rx remote Errors`, `Rx General Errors`, `Local link integrity Errors`, `Tx discards`, `Link recovery successful events`, `Link recovery failed events`, `Total link recovery events`, `Effective Errors`, `Symbol Errors` | These are the exact counter names on driver 595.91.07. Non-zero on one link on one GPU points at that link, and these are the counters to quote when an Xid 144 to 150 names a link. `Link recovery failed events` above zero is the strongest of them. Note the older `Replay Errors` / `Recovery Errors` / `CRC Errors` names are **not** present on this driver, so do not look for them |
+| `nvidia-smi nvlink -e`, FEC fields | `FEC Errors - 0: <large and growing>`, buckets 1 to 15 at or near `0` | **Do not report bucket 0 as an error count.** It is the corrected-codeword counter and reads in the billions on a healthy link (36,140,749,276 observed at boot). Only buckets climbing above 0 indicate real link stress |
+| `nvidia-smi nvlink -e`, BER fields | `Effective BER: 15e-255`, `Symbol BER: 15e-255` | `15e-255` is the floating-point floor, meaning effectively zero. Do not read it as a large exponent or a high error rate |
+| `nvidia-smi nvlink -e`, raw lane fields | `Raw BER Lane 0: 2061`, `Raw BER Lane 1: 1038`, `Raw BER Total: 1037`, `Raw Errors Lane 0: 82`, `Raw Errors Lane 1: 4` | **All of these were non-zero on a healthy node at boot.** They are pre-correction physical-layer counters, so a non-zero value is normal and is not a fault. Never report `Raw Errors` or `Raw BER` as evidence of an NVLink problem on its own. Use them only as a trend against the same link's earlier reading, and lead with the corrected counters above |
+| `nvidia-smi -q`, `Fabric` section | `State: Completed`, `Status: Success`, `CliqueId: 0`, plus a per-GPU `GPU Fabric GUID` | `State` other than `Completed` or `Status` other than `Success` means the GPU has not joined the NVLink fabric. This is the single clearest fabric health field, better than parsing Fabric Manager log lines |
+| `systemctl is-active nvidia-fabricmanager` | `active` | Anything else on an NVSwitch type is a REBOOT candidate per the table above |
+| `nvidia-smi topo -m` | `NV18` between every GPU pair | `NV18` means 18 bonded NVLinks. A pair reading `SYS` or `PHB` instead has lost NVLink and fell back to PCIe or the host interconnect, which is the topology-level version of the SHM fallback in section 1 |
+
+Two cautions, both from this capture. The FEC bucket-0 counter and the `15e-255` BER floor
+each look alarming and are not: a report that calls either one an error is wrong. And
+`dmesg` on a healthy node carries benign `NVRM: API mismatch` warnings when a userspace
+component (for example `nvidia-gridd`) lags the kernel module version. Exclude those
+before counting NVRM errors, the same way the Fabric Manager `PIDFile=` warning is excluded.
+
 ## 3. EFA error counters
 
 | Source | Metric names |
@@ -68,6 +91,23 @@ unresponsive remote events, or work-request errors on the affected nodes, starti
 before the hang, supports Branch D. A rise that starts after the hang is an effect.
 Sources: [CloudWatch agent EFA metrics](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Agent-EFA.html),
 [Monitor an EFA](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/efa-working-monitor.html).
+
+**Do not count `/sys/class/infiniband` entries to decide whether EFA is attached.** Verified
+on a live `p6-b300.48xlarge` launched with no EFA interface at all: the OS still showed two
+InfiniBand devices, `ibp198s0f0` and `ibp199s0f0`. They are **ConnectX bridge devices**
+(driver `mlx5_ib` / `mlx5_core`, firmware `28.47.2526`), which is how Fabric Manager does
+NVLink subnet management on P6-B200 and P6-B300, per the AWS public-driver page and the
+`CX Bridge device ... is usable for NVLink subnet management` log line in section 2. They are
+not network fabric. On the same node the `efa` kernel module was loaded with a zero
+reference count and `/dev/infiniband` held only the ConnectX `uverbs`/`umad` pairs, while
+`DescribeInstances` reported no interface with `InterfaceType` `efa` or `efa-only`.
+
+So on a Blackwell node, an InfiniBand device count is evidence about the NVLink bridge, not
+about EFA, and reading it as "2 EFA devices present" is a false positive. Count EFA the way
+rule R2 says, from `DescribeInstances` `InterfaceType` `efa` or `efa-only` against
+`MaximumEfaInterfaces`, and if you want on-node corroboration use `fi_info -p efa` (absent
+on the base Deep Learning AMI unless libfabric is installed) or check the device driver
+behind each InfiniBand entry rather than the entry itself.
 
 ## 4. Which instance types have an NVSwitch fabric
 
@@ -86,6 +126,17 @@ summarised here as checked:
 
 For a type not in this table, re-check the instance page. Never infer NVSwitch from the
 GPU model name.
+
+**The documented figure and `nvidia-smi` do not use the same units. Do not treat the
+difference as a degraded fabric.** On a healthy `p6-b300.48xlarge`, `nvidia-smi topo -m`
+reads `NV18` between every GPU pair (18 bonded NVLinks) and `nvidia-smi nvlink -s` reads
+`53.125 GB/s` per link. That is 956.25 GB/s per direction, against the 1800 GB/s in the
+table above, because the AWS and NVIDIA marketing figure is bidirectional while
+`nvidia-smi` reports per-link unidirectional. An agent that divides the documented number
+by the observed one will conclude the fabric is running at half width on a perfectly
+healthy node. Compare link **count** and per-link **rate** across the GPUs in the node
+instead, and treat an asymmetry between GPUs as the signal, never a mismatch against the
+documented aggregate.
 
 ## 5. Software stack minimums
 

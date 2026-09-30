@@ -75,6 +75,10 @@ Other GPU memory signals that are not Xids ([AWS Xid troubleshooting](https://re
 | `Remapped Rows ... Pending: Yes` | `nvidia-smi -q` on the node | REBOOT (GPU reset required) |
 | `Remapping Failure Occurred: Yes` | `nvidia-smi -q` on the node | REPLACE (stop/start) |
 | `Pending Page Blacklist: Yes` (older GPUs) | `nvidia-smi -q` on the node | REBOOT |
+| `SRAM Threshold Exceeded: Yes` | `nvidia-smi -q -d ECC`, under `Aggregate` | REPLACE. The NVIDIA RMA gate for an SRAM double-bit error, see rule 6 |
+| `Unrepairable Memory: Yes` | `nvidia-smi -q -d ECC` | REPLACE. No repair path remains; the same condition Xid 157 reports |
+| `Channel Repair Pending: Yes` or `TPC Repair Pending: Yes` | `nvidia-smi -q -d ECC` | REBOOT. A repair is staged but not yet applied |
+| `Bank Remap Availability Histogram` shifting from `Max` toward `Low` / `None` | `nvidia-smi -q -d ROW_REMAPPER` | MONITOR, and a pre-failure signal worth reporting. It measures remaining remap capacity per bank (a healthy B300 reads `Max: 5760 bank(s)` with zeros elsewhere). Exhausted capacity is what later surfaces as a remap failure or Xid 157, so a degrading histogram is the early warning |
 | Fewer GPUs than the instance type has | Distinct `GpuId` (`AWS/EC2`) or `index` (`CWAgent`) dimension values from `ListMetrics`, compared with `DescribeInstanceTypes` GPU count; on the node, `nvidia-smi --list-gpus` | REPLACE (AWS: stop and start). Missing metrics are Not observable, never a low count |
 
 ## Routing rules
@@ -100,12 +104,48 @@ Other GPU memory signals that are not Xids ([AWS Xid troubleshooting](https://re
    | Xid 172 (`UNCORRECTABLE_SRAM_ERROR`) present, or the 48 message names an SRAM unit | SRAM: the reboot-retires-a-page logic does not apply. Check the SRAM DBE threshold flag. If set, the NVIDIA flow is RMA, which on EC2 means REPLACE (stop/start) |
    | Neither 171/172 present and the 48 message does not say | `UNVERIFIED` which memory faulted. Report the 48, say the DRAM/SRAM split could not be determined from the log, and name the one check that resolves it (below). Do not default to REBOOT as if it were DRAM |
 
-   The SRAM threshold flag is only readable on the node, so it is outside this skill's
-   read-only API scope: `nvidia-smi -q` (the SRAM threshold-exceeded field), or NSM Msg
-   Type `0x3`, Cmd Code `0x7D`, bit 0. Name it as an operator step and label the verdict
-   `Hypothesis (to validate)` until it is read. Xid 171 and 172 require a recent driver
-   (the catalog pairs them with CUDA 12.7 / driver R565), so their absence on an older
-   driver is not evidence of DRAM.
+   These counters are only readable on the node, so they are outside this skill's
+   read-only API scope. Name them as operator steps and label the verdict
+   `Hypothesis (to validate)` until they are read. Field names below were captured from
+   `nvidia-smi -q -d ECC` on a live `p6-b300.48xlarge` (driver 595.91.07, CUDA 13.2),
+   so quote them exactly rather than paraphrasing:
+
+   ```
+   ECC Errors
+       Volatile / Aggregate
+           SRAM Correctable
+           SRAM Uncorrectable Parity        <- SRAM, two separate counters
+           SRAM Uncorrectable SEC-DED       <-
+           DRAM Correctable
+           DRAM Uncorrectable               <- DRAM
+           SRAM Threshold Exceeded : No     <- the RMA gate, Aggregate only
+       Aggregate Uncorrectable SRAM Sources
+           SRAM L2 / SRAM SM / SRAM Microcontroller / SRAM PCIE / SRAM Other
+       Channel Repair Pending  : No
+       TPC Repair Pending      : No
+       Unrepairable Memory     : No
+   ```
+
+   Read it this way:
+
+   - **`SRAM Threshold Exceeded`** is the literal field the NVIDIA RMA flow turns on. It
+     appears under `Aggregate`, not `Volatile`. `Yes` means REPLACE.
+   - **SRAM uncorrectable is two counters**, `Parity` and `SEC-DED`. Report whichever is
+     non-zero by name; do not sum them into one "SRAM uncorrectable" figure.
+   - **`Aggregate Uncorrectable SRAM Sources`** locates the fault (L2, SM,
+     microcontroller, PCIE, other). Quote the non-zero source, since it is the closest
+     thing to a which-unit answer without the vendor decode.
+   - **`Unrepairable Memory: Yes`** is a REPLACE on its own: the GPU is saying no repair
+     path remains. This is the same condition Xid 157 reports, from the other side.
+   - **`Channel Repair Pending: Yes`** or **`TPC Repair Pending: Yes`** means a repair is
+     staged but not applied, so the verdict is REBOOT, exactly like a pending row remap.
+   - The NSM path (Msg Type `0x3`, Cmd Code `0x7D`, bit 0) is the out-of-band equivalent
+     of `SRAM Threshold Exceeded` where BMC access exists.
+
+   Xid 171 and 172 need a recent driver (the catalog pairs them with CUDA 12.7 / driver
+   R565), so their absence on an older driver is not evidence of DRAM. Verified present
+   on the current Deep Learning AMI, which ships 595.91.07, so on an up-to-date fleet the
+   split is available rather than theoretical.
 7. **Xid 154 overrides the table.** Its message states the required action, for example
    `Xid 154 GPU recovery action changed from 0x0 (None) to 0x2 (Node Reboot Required)`.
    Values: `None`, `Drain P2P`, `Drain and Reset`, `GPU Reset Required`, `Node Reboot Required`.

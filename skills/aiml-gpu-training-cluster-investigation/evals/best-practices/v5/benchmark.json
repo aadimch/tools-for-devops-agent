@@ -1,11 +1,11 @@
 {
-  "timestamp": "2026-09-30T19:18:50Z",
-  "version": "v4",
+  "timestamp": "2026-09-30T21:58:17Z",
+  "version": "v5",
   "model": "us.anthropic.claude-sonnet-5",
   "iterations": 3,
   "avg_confidence": "high",
   "consistency": {
-    "consistency_score": 94,
+    "consistency_score": 100,
     "reports": [
       {
         "iteration": 1,
@@ -22,16 +22,16 @@
       },
       {
         "iteration": 2,
-        "result": "failed",
-        "score": 93,
+        "result": "passed",
+        "score": 100,
         "total": 17,
-        "passed": 13,
-        "failed": 1,
+        "passed": 14,
+        "failed": 0,
         "skipped": 3,
         "warning": 0,
         "errored": 0,
         "low_confidence": 0,
-        "avg_confidence": "medium"
+        "avg_confidence": "high"
       },
       {
         "iteration": 3,
@@ -58,7 +58,7 @@
         ],
         "confidences": [
           "high",
-          "medium",
+          "high",
           "high"
         ],
         "avg_confidence": "high",
@@ -74,7 +74,7 @@
         ],
         "confidences": [
           "high",
-          "medium",
+          "high",
           "high"
         ],
         "avg_confidence": "high",
@@ -85,16 +85,16 @@
         "name": "Detailed reference materials must not be in body",
         "results": [
           "passed",
-          "failed",
+          "passed",
           "passed"
         ],
         "confidences": [
           "high",
-          "medium",
+          "high",
           "high"
         ],
         "avg_confidence": "high",
-        "consistent": false
+        "consistent": true
       },
       {
         "id": "BP-04",
@@ -186,7 +186,7 @@
         ],
         "confidences": [
           "high",
-          "medium",
+          "high",
           "high"
         ],
         "avg_confidence": "high",
@@ -201,11 +201,11 @@
           "passed"
         ],
         "confidences": [
-          "medium",
-          "medium",
-          "high"
+          "high",
+          "high",
+          "medium"
         ],
-        "avg_confidence": "medium",
+        "avg_confidence": "high",
         "consistent": true
       },
       {
@@ -217,11 +217,11 @@
           "passed"
         ],
         "confidences": [
-          "high",
-          "high",
+          "medium",
+          "medium",
           "high"
         ],
-        "avg_confidence": "high",
+        "avg_confidence": "medium",
         "consistent": true
       },
       {
