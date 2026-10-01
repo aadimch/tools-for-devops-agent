@@ -31,6 +31,15 @@ monthly idle-cost totals that no pricing API was called to obtain; and blanket "
 console page or API the reader can check instead — an unsourced figure that looks authoritative is
 worse than no figure, because it gets acted on.
 
+**Every recommendation must be executable as written.** Before emitting one, check that the API and
+parameter you name actually accept the change you are asking for. A recommendation naming a parameter
+that does not exist, or an API that cannot apply it, fails the moment the operator tries it — and it
+discredits the findings that *are* correct. This class has already produced two defects: instructing a
+serverless endpoint to attach a `VpcConfig` (Serverless Inference does not support it), and attaching a
+notebook `KmsKeyId` via `UpdateNotebookInstance` (no such parameter; the key is immutable after
+creation). When the only remediation is disruptive — re-creating a resource rather than updating it —
+say so explicitly instead of implying an in-place change.
+
 **What counts as one finding.** A finding is **one non-compliant resource within one check**,
 keyed by `(check, region, resource)` — not one row per check. Three notebooks with no
 customer-managed key are **three** Medium findings with three recommendations, not one finding
@@ -99,11 +108,24 @@ Empty results produce a single "no resources found" row rather than being droppe
   encryption". Labelling it `encrypted: false` / "Not encrypted" tells the customer their data sits
   in the clear when it does not — a factually wrong statement in a customer-facing report, and the
   kind of finding that destroys trust in every other row. Report the gap as the absence of a CMK.
+- **`KmsKeyId` is immutable — never recommend `UpdateNotebookInstance`.** The remediation for this
+  finding is **re-creation**, not an update.
+  [`UpdateNotebookInstance`](https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_UpdateNotebookInstance.html)
+  accepts no `KmsKeyId` parameter — the key is settable only at creation, via
+  `CreateNotebookInstance --kms-key-id`. Observed 2026-10-01: a run emitted "Enable a customer-managed
+  KMS key via `UpdateNotebookInstance` `KmsKeyId`" six times across the Executive Summary and the
+  check's Recommendations block. An operator following that gets a parameter-validation error, and a
+  recommendation that cannot be executed is worse than none — it is the same failure class as telling
+  a serverless endpoint to attach a `VpcConfig`. **Word the recommendation as a replacement**: create a
+  new notebook instance with `--kms-key-id` set, migrate the notebook contents (the ML volume does not
+  transfer), then delete the original. Say plainly that this is disruptive, so the operator can weigh
+  it rather than discovering the cost mid-change. Do **not** name `UpdateNotebookInstance`, and do not
+  imply the key can be attached in place.
 - **Severity**: notebook with no customer-managed KMS key → **Medium** (a system-managed key gives
   no key-usage audit trail, no rotation control, no grant/deny policy, and no way to revoke access
-  by disabling the key); CMK present → Informational (OK). Recommendation on Medium: attach a
-  customer-managed KMS key (`KmsKeyId`) so key usage is auditable and revocable — note that this
-  requires re-creating the notebook instance, as `KmsKeyId` is immutable.
+  by disabling the key); CMK present → Informational (OK). Recommendation on Medium: re-create the
+  notebook instance with a customer-managed `KmsKeyId` so key usage is auditable and revocable —
+  phrased per the immutability rule above.
 - **Fields**: `type` (NotebookInstance), `name`, `customerManagedKey` (bool), `severity`,
   `kmsKeyId` (the key ARN, or **"AWS managed (system-managed key)"** — never "Not encrypted"),
   `encryptionAtRest` (always `"Enabled"`)

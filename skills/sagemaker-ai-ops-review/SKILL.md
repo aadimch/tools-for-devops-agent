@@ -11,7 +11,7 @@ description: Amazon SageMaker AI Operational Review. Use this skill when a user 
   SageMaker", or "Operational Readiness Review (ORR) for SageMaker".
 metadata:
   author: jacklunn
-  version: "1.1.1"
+  version: "1.1.2"
   aws-devops-agent-skills.agent-types: "Chat tasks, Evaluation"
   aws-devops-agent-skills.aws-services: "Amazon SageMaker AI, Amazon CloudWatch, AWS Service Quotas"
   aws-devops-agent-skills.technical-domains: "AI/ML"
@@ -203,7 +203,9 @@ reader assume wider coverage.
   configs, S3 model artifacts, and Feature Store stores are **not** assessed for encryption. Never
   present the Security pillar as a complete encryption audit — name the gap. Note also that a
   notebook without a `KmsKeyId` is still encrypted (system-managed key); the finding is the absence
-  of a **customer-managed** key, never "not encrypted".
+  of a **customer-managed** key, never "not encrypted". The remediation is **re-creation**, not an
+  update — `UpdateNotebookInstance` has no `KmsKeyId` parameter, so never name it; the key is settable
+  only at creation.
 - **No Feature Store or Model Registry checks.** Neither is inventoried or assessed. If a user asks
   about feature groups or model packages, say plainly that this review does not cover them rather
   than returning a clean report that implies they passed.

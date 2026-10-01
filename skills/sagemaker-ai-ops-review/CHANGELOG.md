@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.2] - 2026-10-01
+
+### Fixed
+- **The notebook-encryption recommendation named an API parameter that does not exist.** A live run emitted "Enable a customer-managed KMS key via `UpdateNotebookInstance` `KmsKeyId`" six times, across both the Executive Summary and the check's Recommendations block. [`UpdateNotebookInstance`](https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_UpdateNotebookInstance.html) accepts no `KmsKeyId` parameter — the key is settable only at creation — so an operator following that recommendation gets a parameter-validation error. The immutability note existed but was buried at the end of a Severity bullet and was ignored; it is now its own rule, naming the wrong API explicitly and requiring the remediation be worded as re-creating the instance with `--kms-key-id`, including that this is disruptive because the ML volume does not transfer. Also restated in `SKILL.md`, which is always loaded.
+- **Added a cross-cutting rule: every recommendation must be executable as written.** This defect class has now produced two separate findings — telling a serverless endpoint to attach a `VpcConfig`, and attaching a notebook `KmsKeyId` via an API that cannot — so the check-level fixes are backed by a general requirement to verify the named API and parameter accept the change before emitting a recommendation, and to say so explicitly when the only remediation is disruptive.
+
 ## [1.1.1] - 2026-10-01
 
 ### Added

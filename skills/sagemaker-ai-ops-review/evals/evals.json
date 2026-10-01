@@ -125,12 +125,15 @@
   {
     "id": "notebook-encryption-customer-managed-key",
     "prompt": "Are my SageMaker notebook instances encrypted?",
-    "expected_output": "Reports every notebook instance as encrypted at rest, because SageMaker AI encrypts notebook OS and ML data volumes with a system-managed KMS key when no KmsKeyId is supplied. A notebook without a customer-managed key is a Medium finding worded as the absence of a CMK — never as 'not encrypted' — with a recommendation to attach one.",
+    "expected_output": "Reports every notebook instance as encrypted at rest, because SageMaker AI encrypts notebook OS and ML data volumes with a system-managed KMS key when no KmsKeyId is supplied. A notebook without a customer-managed key is a Medium finding worded as the absence of a CMK — never as 'not encrypted' — with a recommendation to attach one. The recommendation is worded as re-creating the notebook instance with `--kms-key-id` set at creation, because `KmsKeyId` is immutable and `UpdateNotebookInstance` accepts no such parameter.",
     "assertions": [
       "never states or implies that a notebook instance is unencrypted",
       "reports a notebook with no KmsKeyId as lacking a customer-managed key, scored Medium",
       "reports encryption at rest as enabled even when no customer-managed key is set",
-      "notes that attaching a KmsKeyId requires re-creating the notebook instance"
+      "notes that attaching a KmsKeyId requires re-creating the notebook instance",
+      "recommends re-creating the notebook instance rather than updating it in place",
+      "does not name UpdateNotebookInstance, and does not imply KmsKeyId can be attached to an existing notebook instance",
+      "states that the remediation is disruptive, since the ML volume does not transfer"
     ]
   },
   {
