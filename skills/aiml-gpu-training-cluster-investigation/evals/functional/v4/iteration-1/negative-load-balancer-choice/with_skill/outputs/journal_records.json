@@ -1,0 +1,42 @@
+[
+  {
+    "agentSpaceId": "7146ba2b-ce43-4ee1-a6bc-4a1362758f8c",
+    "executionId": "5b685ca3-eb9c-47cf-ac69-717eea675a57",
+    "recordId": "ed290a03-891b-47c0-98c3-13ca26510b20",
+    "content": "{\"id\": \"ed290a03-891b-47c0-98c3-13ca26510b20\", \"role\": \"user\", \"content\": [{\"text\": \"What is the difference between an Application Load Balancer and a Network Load Balancer?\", \"type\": \"text\"}], \"created_at\": null}",
+    "createdAt": "2026-09-30T22:14:00.108000-06:00",
+    "recordType": "message"
+  },
+  {
+    "agentSpaceId": "7146ba2b-ce43-4ee1-a6bc-4a1362758f8c",
+    "executionId": "5b685ca3-eb9c-47cf-ac69-717eea675a57",
+    "recordId": "d4c97c4e-4b57-4f7f-a065-47ac41ef2c88",
+    "content": "{\"id\": \"1434dd1e-eeea-4f15-afc3-fbccb05749ed\", \"role\": \"assistant\", \"content\": [{\"type\": \"chat_title\", \"title\": \"Application Load Balancer vs Network Load Balancer\"}]}",
+    "createdAt": "2026-09-30T22:14:00.556000-06:00",
+    "recordType": "chat_title"
+  },
+  {
+    "agentSpaceId": "7146ba2b-ce43-4ee1-a6bc-4a1362758f8c",
+    "executionId": "5b685ca3-eb9c-47cf-ac69-717eea675a57",
+    "recordId": "aeeca530-554e-4232-a532-69c843a1f511",
+    "content": "{\"metadata\": {\"version\": \"0.1\"}, \"data\": {\"context_window\": {\"utilization\": 3.6, \"compaction_count\": 0}}}",
+    "createdAt": "2026-09-30T22:14:08.515000-06:00",
+    "recordType": "utilization"
+  },
+  {
+    "agentSpaceId": "7146ba2b-ce43-4ee1-a6bc-4a1362758f8c",
+    "executionId": "5b685ca3-eb9c-47cf-ac69-717eea675a57",
+    "recordId": "7870fd31-8ed8-448a-8cd0-4d7f1070d3bf",
+    "content": "{\"id\": \"7870fd31-8ed8-448a-8cd0-4d7f1070d3bf\", \"role\": \"assistant\", \"content\": [{\"text\": \"Both are AWS Elastic Load Balancing (ELB) options, but they operate at different layers and are suited to different use cases:\\n\\n**Application Load Balancer (ALB)**\\n- Operates at Layer 7 (application layer, HTTP/HTTPS)\\n- Routes traffic based on content \\u2014 URL path, hostname, HTTP headers, query strings\\n- Supports advanced routing: path-based and host-based rules, redirects, fixed responses\\n- Good for microservices, container-based apps, and anything needing smart HTTP routing\\n- Supports WebSockets and HTTP/2\\n- Integrates well with ECS, EKS, Lambda targets\\n\\n**Network Load Balancer (NLB)**\\n- Operates at Layer 4 (transport layer, TCP/UDP/TLS)\\n- Routes based on IP protocol data \\u2014 much lower latency, built for extreme performance\\n- Can handle millions of requests per second with ultra-low latency\\n- Preserves the client's source IP by default\\n- Supports static IP addresses / Elastic IPs per Availability Zone \\u2014 useful when clients need to allowlist fixed IPs\\n- Good for latency-sensitive workloads, TCP/UDP-based protocols, or when you need a static IP\\n\\n**Quick rule of thumb:** if you need smart HTTP-level routing (paths, hosts, headers), go with ALB. If you need raw performance, static IPs, or non-HTTP protocols (like TCP/UDP), go with NLB.\\n\\nLet me know if you want help figuring out which one fits a specific setup you're working with, or want to see your existing load balancers.\", \"type\": \"text\"}], \"created_at\": null}",
+    "createdAt": "2026-09-30T22:14:08.613000-06:00",
+    "recordType": "message"
+  },
+  {
+    "agentSpaceId": "7146ba2b-ce43-4ee1-a6bc-4a1362758f8c",
+    "executionId": "5b685ca3-eb9c-47cf-ac69-717eea675a57",
+    "recordId": "fa8db74d-f321-4627-a9d5-93f320c8c36b",
+    "content": "{\"id\": \"efd4a783-7e95-470b-929b-d36a80a606c2\", \"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"Both are AWS Elastic Load Balancing (ELB) options, but they operate at different layers and are suited to different use cases:\\n\\n**Application Load Balancer (ALB)**\\n- Operates at Layer 7 (application layer, HTTP/HTTPS)\\n- Routes traffic based on content \\u2014 URL path, hostname, HTTP headers, query strings\\n- Supports advanced routing: path-based and host-based rules, redirects, fixed responses\\n- Good for microservices, container-based apps, and anything needing smart HTTP routing\\n- Supports WebSockets and HTTP/2\\n- Integrates well with ECS, EKS, Lambda targets\\n\\n**Network Load Balancer (NLB)**\\n- Operates at Layer 4 (transport layer, TCP/UDP/TLS)\\n- Routes based on IP protocol data \\u2014 much lower latency, built for extreme performance\\n- Can handle millions of requests per second with ultra-low latency\\n- Preserves the client's source IP by default\\n- Supports static IP addresses / Elastic IPs per Availability Zone \\u2014 useful when clients need to allowlist fixed IPs\\n- Good for latency-sensitive workloads, TCP/UDP-based protocols, or when you need a static IP\\n\\n**Quick rule of thumb:** if you need smart HTTP-level routing (paths, hosts, headers), go with ALB. If you need raw performance, static IPs, or non-HTTP protocols (like TCP/UDP), go with NLB.\\n\\nLet me know if you want help figuring out which one fits a specific setup you're working with, or want to see your existing load balancers.\"}]}",
+    "createdAt": "2026-09-30T22:14:08.731000-06:00",
+    "recordType": "final_response"
+  }
+]

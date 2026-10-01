@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.0.3
+
+Changes driven by the functional eval, with the diagnosis corrected after a closer look at
+the journals.
+
+- The skill stopped the agent naming the resource it analysed. An FSx investigation quoted no
+  file system ID at all, while the same run without the skill did name it, so the eval scored
+  it as a regression. The log group and stream requirement added in 1.0.1 was too narrow, so
+  rule R5a now covers every resource behind a claim: `fs-...` for storage, `i-...` for nodes,
+  `cr-...` for capacity, the cluster by name. It applies to resources ruled out as well,
+  because an exclusion is useless if the reader cannot tell what was excluded. Added to the
+  Step 7 self-check and to report-format.md. Confirmed fixed: assertions went from 5/21 to
+  13/21 against the no-skill run, and the regression flag cleared.
+- Stream names must be written as the service writes them. Runs were sourcing a finding from
+  the HyperPod health agent and then describing it as "the HMA log stream", which R5 already
+  forbids but which no check caught. report-format.md and the Step 7 list now call for
+  `SagemakerHealthMonitoringAgent/<instance-group>/<instance-id>` verbatim, and tell the agent
+  to search its own draft for the paraphrase.
+- Mode P is now tiered: the six FAIL-class checks P1 to P6 run first, the verdict is written,
+  and P7 to P16 extend it afterwards, with anything unreached reported `Not checked`. Rule R1
+  also asks for the gathering to be budgeted so the report always gets written.
+
+  Worth recording why, because the first diagnosis was wrong. A Mode P run had made 67 tool
+  calls without producing an answer, which looked like the 16 checks exhausting the agent.
+  The journals say otherwise: context window utilization never passed 7.2% in any run, tool
+  volume does not separate pass from fail (one coverage run passed at 77 calls while others
+  failed at 73 and 80), and no-skill runs failed the same way at 21 calls. The real pattern is
+  that a run fails exactly when its journal ends on a telemetry record with no final response
+  recorded, which points at the eval reading the journal before the agent's last message
+  lands rather than at anything in the skill. The tiering and the budget rule are still worth
+  keeping on their own merits, but they are not a fix for that and are not claimed as one.
+
 ## 1.0.2
 
 The Blackwell content added in 1.0.1 came from the NVIDIA catalog alone, so it was checked

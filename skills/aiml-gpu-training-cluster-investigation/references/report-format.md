@@ -91,3 +91,14 @@ Rules:
   measurement.
 - Every coverage row names its full log group and exact log stream. "Customer kernel group"
   or "HMA detections" alone is not enough: give the names.
+- Write the stream name as the service writes it, not as you would describe it. A finding
+  sourced from the HyperPod health agent says
+  `SagemakerHealthMonitoringAgent/<instance-group>/<instance-id>`; "the HMA log stream" or
+  "the health monitoring agent" is a paraphrase and does not let the reader run the same
+  query. The same holds for a ParallelCluster stream such as
+  `ip-10-0-38-23.i-0be6193831c898671.system-messages`. This applies in a short chat answer
+  too, where the temptation to compress the name away is strongest.
+- Every resource behind a claim appears by its identifier: the FSx file system as `fs-...`,
+  nodes as `i-...`, the capacity reservation as `cr-...`, the cluster by name. A storage
+  finding that never prints the file system ID cannot be re-run by the reader, and that
+  applies equally to a resource you checked and cleared.

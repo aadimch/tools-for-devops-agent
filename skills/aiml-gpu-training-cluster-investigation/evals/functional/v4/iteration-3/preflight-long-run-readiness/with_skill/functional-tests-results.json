@@ -1,0 +1,102 @@
+{
+  "version": "v4",
+  "iteration": 3,
+  "eval_id": "preflight-long-run-readiness",
+  "run_type": "with_skill",
+  "success": true,
+  "error": null,
+  "understanding_agent_space_skill": null,
+  "tests": {
+    "trigger": {
+      "result": "passed",
+      "message": "Skill 'aiml-gpu-training-cluster-investigation' was triggered as expected",
+      "skill_loads_found": 2,
+      "warning": "Skill 'aiml-gpu-training-cluster-investigation' was triggered 2 times"
+    },
+    "expected_output": {
+      "result": "passed",
+      "reasoning": "The agent's response covers all the required check categories from the expected output: (1) reserved capacity vs four-day run length - addressed via the Capacity Block check (\"no Capacity Block tied to it to worry about expiring mid-run\") and the On-Demand capacity confirmation item; (2) spare capacity to replace a failed node - explicitly flagged as a blocker (\"Zero spare capacity... no reservation guaranteeing a replacement lands\"); (3) NodeRecovery setting - checked and reported as fine (\"Node auto-recovery is on\"); (4) deep health checks - flagged as a key blocker (\"Deep health checks are off on both GPU instance groups\"); (5) GPU error logging/health monitoring visibility - flagged as could-not-verify (\"Unverified health visibility on one node... never produced a health-monitoring-agent stream, so I can't confirm it's actively watching for GPU faults\").\n\nThe response also appropriately uses a pass/risk/could-not-verify framing: items marked as \"fine\" (pass), items marked as blockers (risk), and the health-monitoring agent item explicitly treated as unverified rather than assumed to pass (\"don't take the silence as a good sign\"). Evidence is cited throughout (instance IDs, instance group names, FSx volume ID, deployment type SCRATCH_2). The response gives a clear overall verdict (\"not ready yet, but fixable\") and prioritizes fixes. This substantively matches the expected output criteria.",
+      "confidence": "high"
+    },
+    "assertions": {
+      "assertion_results": [
+        {
+          "text": "The run length is compared against reserved capacity, or the response states explicitly that no capacity reservation was found",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"no Capacity Block tied to it to worry about expiring mid-run\" and \"losing either one stops that partition cold, and there's no reservation guaranteeing a replacement lands\" directly compares run length/capacity to reservation status.",
+          "reasoning": "The response explicitly states there's no Capacity Block tied to the cluster, and discusses zero spare capacity relative to the 4-day run, addressing capacity reservation vs run length.",
+          "confidence": "high"
+        },
+        {
+          "text": "Whether GPU error logging is arriving is treated as a readiness item, so a failure during the run would be visible",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"The gpu-g5-2xl node (i-0a1fb336e15f3b9e2) has never produced a health-monitoring-agent stream, so I can't confirm it's actively watching for GPU faults\" and action item #3: \"Confirm the health-monitoring agent is actually running on i-0a1fb336e15f3b9e2 via SSM\"",
+          "reasoning": "The agent treats the health-monitoring-agent stream status for the gpu-g5-2xl node as a readiness item, explicitly noting it hasn't been confirmed and recommending verification before the run.",
+          "confidence": "high"
+        },
+        {
+          "text": "Checks are reported individually with a pass, risk, or could-not-verify result each, rather than as undifferentiated prose",
+          "evaluator": "llm",
+          "passed": false,
+          "evidence": "Items are presented as narrative bullets like \"Deep health checks are off on both GPU instance groups\" without explicit per-item status labels (e.g., PASS/RISK/UNVERIFIED); the structure is thematic grouping, not an individual checklist with discrete verdicts per check.",
+          "reasoning": "The output is organized as bullet lists under 'Why it's not ready', 'What's actually fine', and a numbered fix list, which does separate items somewhat, but each check is not explicitly labeled with a pass/risk/could-not-verify tag \u2014 it's narrative prose grouped by category rather than a structured per-check verdict table.",
+          "confidence": "medium"
+        },
+        {
+          "text": "Checks that could not be verified are reported as unverified rather than silently treated as passing",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"Unverified health visibility on one node... I can't confirm it's actively watching for GPU faults \u2014 only that the pipeline is capable of it\" and \"don't take the silence as a good sign.\"",
+          "reasoning": "The health-monitoring agent status on i-0a1fb336e15f3b9e2 is explicitly flagged as unverified ('never produced a health-monitoring-agent stream... I can't confirm') rather than assumed to be passing.",
+          "confidence": "high"
+        },
+        {
+          "text": "The cluster's automatic node recovery configuration is reported as a named setting",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"Node auto-recovery is on, networking/subnet/security groups check out, no active alarms on this cluster\"",
+          "reasoning": "The response explicitly names node auto-recovery as a setting and reports its status.",
+          "confidence": "high"
+        },
+        {
+          "text": "Whether deep health checks are enabled on the cluster is reported",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"Deep health checks are off on both GPU instance groups (gpu-g5-xl, gpu-g5-2xl)\" and fix item #1: \"Turn on OnStartDeepHealthChecks on both GPU instance groups\"",
+          "reasoning": "The response explicitly reports deep health check status by name (OnStartDeepHealthChecks) and flags it as off/needing to be turned on.",
+          "confidence": "high"
+        },
+        {
+          "text": "A per-check result keyword is used",
+          "evaluator": "regex",
+          "passed": true,
+          "evidence": "Matched 'Unverified'"
+        },
+        {
+          "text": "The cluster under review is named",
+          "evaluator": "regex",
+          "passed": true,
+          "evidence": "Matched 'skilltest-hp-slurm'"
+        }
+      ],
+      "summary": {
+        "passed": 7,
+        "failed": 1,
+        "errored": 0,
+        "low_confidence": 0,
+        "total": 8,
+        "pass_rate": 0.875
+      }
+    }
+  },
+  "metrics": {
+    "runtime": "3m7s",
+    "cost": "$1.56",
+    "context_window": {
+      "utilization": "5.8%",
+      "compaction_count": 0
+    }
+  }
+}

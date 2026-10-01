@@ -1,0 +1,103 @@
+{
+  "version": "v4",
+  "iteration": 2,
+  "eval_id": "preflight-long-run-readiness",
+  "run_type": "with_skill",
+  "success": true,
+  "error": null,
+  "understanding_agent_space_skill": null,
+  "tests": {
+    "trigger": {
+      "result": "passed",
+      "message": "Skill 'aiml-gpu-training-cluster-investigation' was triggered as expected",
+      "skill_loads_found": 2,
+      "warning": "Skill 'aiml-gpu-training-cluster-investigation' was triggered 2 times"
+    },
+    "expected_output": {
+      "result": "passed",
+      "reasoning": "The agent's response addresses all the required checks from the expected output:\n\n1. **Readiness verdict**: Clearly stated (\"not ready yet, but nothing here blocks you by tomorrow if you move on these today\").\n2. **Reserved capacity vs four-day run length**: Discusses the cluster running on-demand with no training plan/Capacity Block attached, identifies the stray capacity block as unrelated (p6-b300.48xlarge expiring 2026-10-03), explicitly checking it against the 4-day window (\"would badly miss a 4-day window\").\n3. **Spare capacity to replace a failed node**: Explicitly flagged as a risk \u2014 \"each GPU group is sitting at exactly 1/1 nodes, so a failure mid-run leans entirely on on-demand EC2 capacity being available.\"\n4. **NodeRecovery setting**: Addressed \u2014 \"automatic node recovery is on\" (reported as pass).\n5. **Deep health checks enabled**: Addressed as a blocking risk \u2014 \"No deep health checks configured... Enable OnStartDeepHealthChecks on both GPU groups before kickoff.\"\n6. **GPU error logging arriving / failure visibility**: Addressed \u2014 \"Thin GPU visibility... HyperPod's health-monitoring agent is your only fault signal... worth a final live check right before you kick off tomorrow since there's no heartbeat to prove the agent itself is still alive.\"\n\nEach item is reported with a pass/risk/could-not-verify framing with evidence (e.g., citing specific instance IDs, Xid codes, timestamps, node counts). The agent explicitly names an item it could not verify rather than assuming pass: FSx I/O headroom check (\"I didn't check FSx I/O headroom... against a prior run's throughput \u2014 want me to pull that before you commit\"). This matches the expected output's requirement that unverified items be named rather than assumed to pass.\n\nThe response is thorough, well-evidenced, and structurally aligned with the expected output criteria. It covers all five dimensions requested (capacity vs duration, spare capacity, NodeRecovery, deep health checks, error log visibility) plus explicitly flags an unverified item (FSx) rather than silently passing it.",
+      "evidence": "\"Fix first: 1. No deep health checks configured... 2. No spare GPU node \u2014 each GPU group is sitting at exactly 1/1 nodes... 3. Thin GPU visibility \u2014 HyperPod's health-monitoring agent is your only fault signal... Already fine: automatic node recovery is on... I didn't check FSx I/O headroom (fs-0e93a90dc05f50e97) against a prior run's throughput \u2014 want me to pull that before you commit to the 4-day window\"",
+      "confidence": "high"
+    },
+    "assertions": {
+      "assertion_results": [
+        {
+          "text": "The run length is compared against reserved capacity, or the response states explicitly that no capacity reservation was found",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"runs on-demand (no training plan or Capacity Block attached \u2014 that stray `cr-0580a9d7420fd589a` reservation is for `p6-b300.48xlarge` and belongs to a different stack entirely, so it's a red herring, not your capacity)\" and \"that unrelated `p6-b300.48xlarge` Capacity Block in the same account expires `2026-10-03T11:00Z`... worth a quick sanity check\"",
+          "reasoning": "The agent explicitly compares the 4-day run against capacity reservations, concluding the cluster runs on-demand with no training plan/Capacity Block attached, and separately flags an unrelated Capacity Block expiry date for a sanity check.",
+          "confidence": "high"
+        },
+        {
+          "text": "Whether GPU error logging is arriving is treated as a readiness item, so a failure during the run would be visible",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"Thin GPU visibility \u2014 HyperPod's health-monitoring agent is your only fault signal (no kernel logs shipped)... worth a final live check right before you kick off tomorrow since there's no heartbeat to prove the agent itself is still alive.\"",
+          "reasoning": "The agent treats GPU error log visibility as a readiness item, noting the health-monitoring agent is the only fault signal and flags uncertainty about whether it's still alive/would catch issues during the run.",
+          "confidence": "high"
+        },
+        {
+          "text": "Checks are reported individually with a pass, risk, or could-not-verify result each, rather than as undifferentiated prose",
+          "evaluator": "llm",
+          "passed": false,
+          "evidence": "\"Already fine: automatic node recovery is on, IP/subnet headroom is plenty, no EFA exposure (neither GPU type supports it), and cluster-management alarms are clean.\" - this bundles four distinct checks into one sentence without individual pass/risk/could-not-verify labeling, and similarly the numbered 'Fix first' items are prose paragraphs rather than structured individual results.",
+          "reasoning": "The output is organized as a numbered 'Fix first' list plus an 'Already fine' prose paragraph and a 'loose end' paragraph, rather than giving each individual check a distinct pass/risk/could-not-verify label. Items are grouped thematically in flowing prose rather than itemized with explicit per-check verdicts.",
+          "confidence": "medium"
+        },
+        {
+          "text": "Checks that could not be verified are reported as unverified rather than silently treated as passing",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"I didn't check FSx I/O headroom (`fs-0e93a90dc05f50e97`) against a prior run's throughput \u2014 want me to pull that before you commit to the 4-day window, since it's your shared storage for checkpoints?\"",
+          "reasoning": "The agent explicitly flags FSx I/O headroom as unverified and asks if it should be checked, rather than assuming it passed.",
+          "confidence": "high"
+        },
+        {
+          "text": "The cluster's automatic node recovery configuration is reported as a named setting",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"Already fine: automatic node recovery is on...\"",
+          "reasoning": "The agent explicitly names automatic node recovery as a setting and reports its status.",
+          "confidence": "high"
+        },
+        {
+          "text": "Whether deep health checks are enabled on the cluster is reported",
+          "evaluator": "llm",
+          "passed": true,
+          "evidence": "\"No deep health checks configured (`gpu-g5-xl` / `gpu-g5-2xl`) \u2014 if `NodeRecovery` swaps in a replacement node mid-run, it starts taking work untested. Enable `OnStartDeepHealthChecks` on both GPU groups before kickoff.\"",
+          "reasoning": "The agent explicitly reports deep health check status by name as a top fix-first item.",
+          "confidence": "high"
+        },
+        {
+          "text": "A per-check result keyword is used",
+          "evaluator": "regex",
+          "passed": false,
+          "evidence": "Pattern not found in the output"
+        },
+        {
+          "text": "The cluster under review is named",
+          "evaluator": "regex",
+          "passed": true,
+          "evidence": "Matched 'skilltest-hp-slurm'"
+        }
+      ],
+      "summary": {
+        "passed": 6,
+        "failed": 2,
+        "errored": 0,
+        "low_confidence": 0,
+        "total": 8,
+        "pass_rate": 0.75
+      }
+    }
+  },
+  "metrics": {
+    "runtime": "4m9s",
+    "cost": "$2.07",
+    "context_window": {
+      "utilization": "6.4%",
+      "compaction_count": 0
+    }
+  }
+}

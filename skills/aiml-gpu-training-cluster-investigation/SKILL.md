@@ -14,7 +14,7 @@ description: Use this skill for GPU training or inference clusters on SageMaker 
   or Pending, nodes terminating at once, or "is my cluster ready for a multi-day run".
 metadata:
   author: nzuresh
-  version: "1.0.2"
+  version: "1.0.3"
   aws-devops-agent-skills.agent-types: "Incident RCA, Chat tasks"
   aws-devops-agent-skills.aws-services: "Amazon SageMaker HyperPod, AWS ParallelCluster, Amazon EC2, Amazon FSx for Lustre, Elastic Fabric Adapter, Amazon EKS, AWS Health"
   aws-devops-agent-skills.technical-domains: "Machine Learning, GenAI, High Performance Computing"
@@ -30,11 +30,20 @@ training data, checkpoints, or model weights.
 
 ## Critical rules R1 to R10 (apply in every mode, in this order)
 
-R1. **Answer in one pass.** In chat, do not stop to ask a question and do not hand off to a
-   separate investigation before answering. If an input is missing, use the default (impact
-   window: last 24 hours; run length: evaluate 24, 48, and 72 hours), state the assumption,
-   and mark dependent checks `Needs input`. For "slow" or performance questions with no
-   time given, use the last 72 hours. Offer follow-ups only after the answer.
+R1. **Answer in one pass, and always leave room to answer.** In chat, do not stop to ask a
+   question and do not hand off to a separate investigation before answering. If an input is
+   missing, use the default (impact window: last 24 hours; run length: evaluate 24, 48, and
+   72 hours), state the assumption, and mark dependent checks `Needs input`. For "slow" or
+   performance questions with no time given, use the last 72 hours. Offer follow-ups only
+   after the answer.
+   **Budget the evidence gathering so the answer always gets written.** An investigation that
+   runs out of room before it reports is worth nothing to the operator, and it is worse than a
+   partial answer because it looks like a failure rather than a finding. So: collect the
+   mandatory evidence for the mode first (R2, R4, R5, and for Mode P the P1 to P6 core), then
+   write the report. Pick up the optional checks only with what is left. If you notice you are
+   deep into tool calls and have not yet produced an answer, **stop collecting and report what
+   you have**, marking everything unreached as `Not checked` with the call that would close
+   it. Never end a turn with evidence gathered and no verdict.
 R2. **Inventory and capability profile.** HyperPod: `sagemaker.DescribeCluster` and
    `ListClusterNodes` (paginate). Read `NodeProvisioningMode` from `DescribeCluster`: if it is
    `Continuous`, also pull `sagemaker.ListClusterEvents` for the window (see rule R11), which
@@ -75,6 +84,14 @@ R5. **Prove coverage before any "no errors".** For each node and source: find th
    `SagemakerHealthMonitoringAgent/<group>/<instance-id>` stream means `No HMA detections`
    when the cluster log group is otherwise live. NCCL transport with no `NCCL INFO` lines
    anywhere is `Not observable`; never infer it from the instance type.
+R5a. **Name every resource you looked at, by ID.** A finding the operator cannot re-run is
+   not a finding. Whatever you analysed, put its identifier in the answer: the FSx file system
+   (`fs-...`) behind any storage claim, the instance IDs (`i-...`) behind any node claim, the
+   cluster name, the capacity reservation (`cr-...`) behind any capacity claim, and the log
+   group and stream behind any log claim as R5 already requires. "The file system was
+   saturated" or "the metrics looked fine" names nothing and cannot be checked. This applies
+   to the resource you cleared as much as the one you blamed, since ruling something out is
+   only useful if the reader knows what was ruled out.
 R6. **Verdict per node, headline to match.** `REPLACE`, `REBOOT`, `LEAVE ALONE`, `MONITOR`, or
    `NOT OBSERVABLE`, against the evidence bar in `references/incident-branches.md` (Step 4b).
    Application-class Xids (for example 13, 31) or HMA `reason: XidUserAppError` with the node
@@ -214,6 +231,27 @@ read_skill_resource(skill_id="aiml-gpu-training-cluster-investigation", path="re
 Score checks P1 to P16. Lead with FAIL, then RISK. In Mode P this step replaces
 Steps 4 and 5.
 
+**Work the core first, then extend.** All sixteen checks together cost more tool calls than
+a single answer usually has room for, and a readiness question with no verdict is a failed
+answer however much evidence sits behind it (see R1). So run them in two passes.
+
+The core, which decides whether the run can start at all:
+
+| Check | Question it settles |
+|-------|---------------------|
+| P1 | Does the Capacity Block or training plan outlast the run? |
+| P2 | Is there an extension, if it does not? |
+| P3 | Is there a spare node to replace a failure? |
+| P4 | Is `NodeRecovery` on? |
+| P5 | Are deep health checks enabled? |
+| P6 | Is GPU error logging arriving, so a failure during the run is visible? |
+
+Write the readiness verdict as soon as those six are scored. P7 to P16 then refine it, and
+each one you reach can only add a `RISK`, never change a `FAIL` already found in the core.
+Anything you do not reach is reported `Not checked` with the call that would settle it, which
+is an honest answer; silence is not. If the core itself is incomplete, say which part and
+give the verdict you can support.
+
 ## Step 6: Report
 
 Load [references/report-format.md](references/report-format.md) for the report template and its rules:
@@ -231,6 +269,12 @@ Fix the draft where a check fails; do not present an output that fails one.
       Step 3. If coverage was not proven, the wording is `Not observable`, not healthy.
 - [ ] Every coverage row names its full log group and exact log stream (rule R5). A coverage
       claim with no named source is not auditable and must be fixed before presenting.
+- [ ] Stream names appear as the service writes them, not paraphrased. Search your own draft
+      for phrases like "the HMA log stream" or "the health agent log" and replace each with
+      the real name, for example
+      `SagemakerHealthMonitoringAgent/<instance-group>/<instance-id>`. This is the easiest
+      check to skip in a short answer and the one that most often makes a finding
+      unreproducible.
 - [ ] Every node verdict still meets the evidence bar that justifies it, re-read from
       [references/incident-branches.md](references/incident-branches.md) Step 4b.
 - [ ] The headline matches the verdicts. It does not say "hardware error" unless a verdict
@@ -243,6 +287,13 @@ Fix the draft where a check fails; do not present an output that fails one.
       zero or as healthy.
 - [ ] Each recommendation names an operator action, and no mutating API call was made.
 - [ ] Every number in the answer can be traced to a call you actually made this run.
+- [ ] Every resource you analysed appears by ID (rule R5a): the `fs-...` behind a storage
+      claim, the `i-...` behind a node claim, the `cr-...` behind a capacity claim, the
+      cluster name, the log group and stream. This holds for resources you cleared, not just
+      the one you blamed.
+- [ ] **There is an actual answer.** A verdict or root cause is written down, not just
+      evidence. If you ran out of room before finishing, the draft still leads with the
+      verdict you can support and marks the rest `Not checked` (rule R1).
 
 State the outcome of this self-check in one line, naming anything you could not verify.
 

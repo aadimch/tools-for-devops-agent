@@ -79,7 +79,7 @@
       "should_trigger": true,
       "assertions": [
         "Each candidate cause carries an explicit proven or hypothesis label, rather than being asserted or hedged in prose",
-        "Nothing is called the root cause unless a measured signal on the affected resource is quoted for it. A saturation metric, a capacity or lifecycle event, or a control-plane event all count as measured; an inferred or merely correlated cause does not",
+        "Nothing is called the root cause unless a measured saturation signal on the affected resource is quoted for it",
         "The response names the specific single measurement that would confirm or reject the leading hypothesis",
         "Signals that could not be read are reported as not observable together with what to collect, never as zero or healthy",
         "Percentage figures from FSx or GPU metrics are quoted as the metric reported them, without being rescaled",
