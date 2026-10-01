@@ -28,7 +28,7 @@ wrong: silent evidence, wrong-headline hardware verdicts, and predictable failur
 long run. **Read-only.** Never reboot, replace, update, or delete anything, and never read
 training data, checkpoints, or model weights.
 
-## Critical rules R1 to R10 (apply in every mode, in this order)
+## Critical rules R1 to R11 (apply in every mode, in this order)
 
 R1. **Answer in one pass, and always leave room to answer.** In chat, do not stop to ask a
    question and do not hand off to a separate investigation before answering. If an input is
