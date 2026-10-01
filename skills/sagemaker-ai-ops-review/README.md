@@ -176,7 +176,7 @@ Quota headroom before a launch:
 
 Point an Evaluation agent at the skill and schedule it — weekly ahead of an operational review meeting, or monthly as a posture check. The report is produced in full each run, so successive runs are directly comparable.
 
-To run it on a schedule, add this skill to the [`aws-operation-review`](../../custom-agents/aws-operation-review/README.md) custom agent — the router that composes every `*-operation-review` skill — and attach a schedule trigger there. This skill intentionally ships no custom agent of its own.
+To run it on a schedule, add this skill to the [`aws-operation-review`](../../custom-agents/aws-operation-review/) custom agent — the router that composes every `*-operation-review` skill — and attach a schedule trigger there. This skill intentionally ships no custom agent of its own.
 
 ## Report Structure
 
@@ -219,9 +219,9 @@ If every in-scope check across every in-scope account and region returns no reso
 
 ## Related
 
-- [`aws-operation-review` custom agent](../../custom-agents/aws-operation-review/README.md) — the router that composes this skill alongside the EKS, RDS/Aurora, and Bedrock operation-review skills. Select this skill in its **Skills** picker to run the review on demand or on a schedule.
-- [`aiml-access-diagnostics`](../aiml-access-diagnostics/README.md) — diagnoses IAM and access failures for SageMaker and Bedrock calls; use during an incident rather than a posture review.
-- [`service-quota-check`](../service-quota-check/README.md) — general-purpose, all-service quota checking. This skill's Service Quotas pillar is SageMaker-specific and scoped to seven verified SageMaker quota codes.
+- [`aws-operation-review` custom agent](../../custom-agents/aws-operation-review/) — the router that composes this skill alongside the EKS, RDS/Aurora, and Bedrock operation-review skills. Select this skill in its **Skills** picker to run the review on demand or on a schedule.
+- [`aiml-access-diagnostics`](../aiml-access-diagnostics/) — diagnoses IAM and access failures for SageMaker and Bedrock calls; use during an incident rather than a posture review.
+- [`service-quota-check`](../service-quota-check/) — general-purpose, all-service quota checking. This skill's Service Quotas pillar is SageMaker-specific and scoped to seven verified SageMaker quota codes.
 - AWS Well-Architected lenses grounding the Best Practices pillar: [Machine Learning](https://docs.aws.amazon.com/wellarchitected/latest/machine-learning-lens/machine-learning-lens.html) · [Generative AI](https://docs.aws.amazon.com/wellarchitected/latest/generative-ai-lens/generative-ai-lens.html) · [Agentic AI](https://docs.aws.amazon.com/wellarchitected/latest/agentic-ai-lens/agentic-ai-lens.html)
 
 ## Non-production disclaimer
