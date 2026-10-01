@@ -23,7 +23,7 @@ This custom agent performs comprehensive operational reviews of AWS services (EK
 - The [rds-operation-review skill](../../skills/rds-operation-review/) uploaded to your Agent Space. Important note: for the skill to be used by the custom agent, choose "All agents" in the "Agent Type" field when importing the skill, even that the skill's README file instructs to choose specific agent types
 - The [bedrock-operation-review skill](../../skills/bedrock-operation-review/) uploaded to your Agent Space. Important note: for the skill to be used by the custom agent, choose "All agents" in the "Agent Type" field when importing the skill, even that the skill's README file instructs to choose specific agent types
 - The [agentcore-ops-review skill](../../skills/agentcore-ops-review/) uploaded to your Agent Space. Important note: for the skill to be used by the custom agent, choose "All agents" in the "Agent Type" field when importing the skill. Also note: the standard `AIDevOpsAgentAccessPolicy` does not include the `bedrock-agentcore:` namespace — grant the read-only AgentCore permissions (or use the skill's observability-only mode) per the skill's README
-- The [sagemaker-ops-review skill](../../skills/sagemaker-ops-review/) uploaded to your Agent Space with "All agents" selected in the "Agent Type" field. `AIDevOpsAgentAccessPolicy` covers every API this skill calls except `savingsplans:DescribeSavingsPlans`, which is an optional add-on — see the [skill's prerequisites](../../skills/sagemaker-ops-review/)
+- The [sagemaker-ai-ops-review skill](../../skills/sagemaker-ai-ops-review/) uploaded to your Agent Space with "All agents" selected in the "Agent Type" field. `AIDevOpsAgentAccessPolicy` covers every API this skill calls except `savingsplans:DescribeSavingsPlans`, which is an optional add-on — see the [skill's prerequisites](../../skills/sagemaker-ai-ops-review/)
 
 ## Creating the Agent
 
@@ -31,7 +31,7 @@ This custom agent performs comprehensive operational reviews of AWS services (EK
 2. Click "Create agent" (on the right side), then on the new menu that popped up, click "Form" (the left-most option)
 3. In the "Name" field, use "aws-operation-review"
 4. Copy the content of the "SYSTEM_PROMPT.md" file from this directory, and paste it into the "System prompt" field in the custom agent creation form
-5. In the "Skills" drop-down list, select the skills for the services you want to review — "aws-eks-operations-review", "rds-operation-review", "bedrock-operation-review", "agentcore-ops-review", and/or "sagemaker-ops-review" — and click "Create agent"
+5. In the "Skills" drop-down list, select the skills for the services you want to review — "aws-eks-operations-review", "rds-operation-review", "bedrock-operation-review", "agentcore-ops-review", and/or "sagemaker-ai-ops-review" — and click "Create agent"
 6. Now we need to add the `use_aws` and `use_kubectl` tools - in the new custom agent's window, click "Edit"
 7. In the new popped up window, select "Chat". A new chat will start on the left side. Wait for DevOps Agent to finish thinking, and it'll ask you what would you like to change
 8. Type "Add the use_aws and use_kubectl tools to this custom agent". Once the chat is finished, verify in the custom agent's page that both `use_aws` and `use_kubectl` are shown under "Tools" for this custom agent
@@ -47,5 +47,5 @@ Once finished, the artifact is persisted on the **Artifacts** page in the DevOps
 - [rds-operation-review skill](../../skills/rds-operation-review/) — domain knowledge for RDS/Aurora database assessments
 - [bedrock-operation-review skill](../../skills/bedrock-operation-review/) — domain knowledge for Bedrock workload assessments
 - [agentcore-ops-review skill](../../skills/agentcore-ops-review/) — domain knowledge for Bedrock AgentCore assessments
-- [sagemaker-ops-review skill](../../skills/sagemaker-ops-review/) — domain knowledge for Amazon SageMaker AI operational reviews
+- [sagemaker-ai-ops-review skill](../../skills/sagemaker-ai-ops-review/) — domain knowledge for Amazon SageMaker AI operational reviews
 - [AWS DevOps Agent custom agents documentation](https://docs.aws.amazon.com/devopsagent/latest/userguide/working-with-devops-agent-custom-agents-index.html)

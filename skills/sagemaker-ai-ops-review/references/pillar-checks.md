@@ -32,9 +32,9 @@ console page or API the reader can check instead — an unsourced figure that lo
 worse than no figure, because it gets acted on.
 
 **What counts as one finding.** A finding is **one non-compliant resource within one check**,
-keyed by `(check, region, resource)` — not one row per check. Three unencrypted notebooks are
-**three** Medium findings with three recommendations, not one finding reading "3 notebooks are
-unencrypted". Never aggregate resources into a single finding or a single recommendation: the
+keyed by `(check, region, resource)` — not one row per check. Three notebooks with no
+customer-managed key are **three** Medium findings with three recommendations, not one finding
+reading "3 notebooks lack a CMK". Never aggregate resources into a single finding or a single recommendation: the
 severity counts, the Executive Summary ranking, and the one-recommendation-per-High/Medium rule all
 depend on per-resource granularity, and aggregation makes run-to-run counts incomparable. Observed
 drifting between runs on an identical account (12 Medium findings vs 5) before this was specified.
@@ -48,9 +48,9 @@ report; Low and Informational findings do not require one.
 | Severity | Meaning | Examples |
 |---|---|---|
 | **High** | Material risk to security, availability, or spend — act promptly | Studio domain not `VpcOnly`; quota utilization ≥ 90% |
-| **Medium** | Best-practice gap that should be remediated | No autoscaling; stale endpoint; unencrypted notebook; no VPC config; no Savings Plan on steady spend; quota 75–90% |
-| **Low** | Minor hygiene gap | Missing tags; data capture disabled |
-| **Informational** | Inventory / state, no pass/fail | Inference type, latency, lifecycle configs, projects, pipelines, endpoint instances, domain regions, accelerator adoption, recommender jobs, health events |
+| **Medium** | Best-practice gap that should be remediated | No autoscaling (on the dimension that applies to the variant); an Inference Component endpoint whose host instance fleet is fixed while its components autoscale; stale endpoint ≥ 90 days old *and* idle; notebook with no customer-managed KMS key; no VPC config; Savings Plan expired or ≤ 30 days from expiry; Health event with `actionability = ACTION_REQUIRED`; quota 75–90% |
+| **Low** | Minor hygiene gap | Missing tags; data capture disabled; Savings Plan 31–90 days from expiry; Health event with `actionability = ACTION_MAY_BE_REQUIRED` |
+| **Informational** | Inventory / state, no pass/fail | Inference type, latency, lifecycle configs, projects, pipelines, endpoint instances, domain regions, accelerator adoption, recommender jobs, `INFORMATIONAL` health events, endpoints younger than the 90-day staleness window, accounts with no Savings Plan |
 
 **IAM note.** All APIs except one are covered by the AWS-managed **`AIDevOpsAgentAccessPolicy`**
 already attached to the DevOps Agent role: `sagemaker` List/Describe/ListTags, `cloudwatch`
@@ -60,6 +60,25 @@ GetMetricData/GetMetricStatistics/ListMetrics, `servicequotas:Get*`,
 `savingsplans:DescribeSavingsPlans` (Savings Plan check) — is an **optional add-on** not in the
 managed policy. When a check's permission is absent, report it as **"not evaluated — permission
 not granted"** and continue; never emit a false "none found" on an AccessDenied.
+
+**Three of these APIs are global — call them once, in `us-east-1`, never per region.** AWS Health,
+Cost Explorer, and Savings Plans have no regional endpoints; each has a single global endpoint homed
+in `us-east-1` (`health.us-east-1.amazonaws.com`, `ce.us-east-1.amazonaws.com`,
+`savingsplans.amazonaws.com`, which resolves to us-east-1).
+
+| API | Call with | Returns |
+|---|---|---|
+| `health.describe-events` / `describe-affected-entities` | `--region us-east-1` | events for **all** regions — filter client-side to the in-scope regions (see the Lifecycle Events check's Region scope rule) |
+| `ce.get-cost-and-usage` | `--region us-east-1` | account-wide cost data, grouped by REGION |
+| `savingsplans.describe-savings-plans` | `--region us-east-1` | all Savings Plans in the account |
+
+Looping these three inside the per-region sweep makes them fail in every region other than
+`us-east-1` with an endpoint/connection error. Two of those failures are indistinguishable, at a
+glance, from the legitimate degradation paths the checks already document — a Health failure reads as
+"no Business/Enterprise Support plan" and a Savings Plans failure reads as "permission not granted" —
+so the review reports a plausible-looking wrong reason instead of a bug. Call each once and reuse the
+result across every in-scope region; if the review is scoped to regions that do not include
+`us-east-1`, still make these three calls against `us-east-1`.
 
 Each check emits rows keyed by `Region`, `AccountId`, `Check`, plus the fields listed below.
 Empty results produce a single "no resources found" row rather than being dropped.
@@ -71,9 +90,23 @@ Empty results produce a single "no resources found" row rather than being droppe
 ### Check Encryption
 - **APIs**: `sagemaker.list-notebook-instances` → `describe-notebook-instance`
 - **Scope**: notebook instances only (training jobs / endpoint configs deliberately excluded to avoid OOM)
-- **Logic**: `encrypted = Boolean(KmsKeyId)`
-- **Severity**: notebook without a KMS key → **Medium**; encrypted → Informational (OK). Recommendation on Medium: attach a customer-managed KMS key.
-- **Fields**: `type` (NotebookInstance), `name`, `encrypted` (bool), `severity`, `kmsKeyId` (or "Not encrypted")
+- **Logic**: `hasCustomerManagedKey = Boolean(KmsKeyId)`
+- **Never report a notebook instance as "not encrypted."** A notebook instance volume is **always**
+  encrypted at rest. Per the AWS docs on
+  [notebook-instance encryption at rest](https://docs.aws.amazon.com/sagemaker/latest/dg/encryption-at-rest-nbi.html),
+  when no `KmsKeyId` is supplied SageMaker AI encrypts both the OS volume and the ML data volume
+  with a **system-managed KMS key**. The absent field means "no customer-managed key", not "no
+  encryption". Labelling it `encrypted: false` / "Not encrypted" tells the customer their data sits
+  in the clear when it does not — a factually wrong statement in a customer-facing report, and the
+  kind of finding that destroys trust in every other row. Report the gap as the absence of a CMK.
+- **Severity**: notebook with no customer-managed KMS key → **Medium** (a system-managed key gives
+  no key-usage audit trail, no rotation control, no grant/deny policy, and no way to revoke access
+  by disabling the key); CMK present → Informational (OK). Recommendation on Medium: attach a
+  customer-managed KMS key (`KmsKeyId`) so key usage is auditable and revocable — note that this
+  requires re-creating the notebook instance, as `KmsKeyId` is immutable.
+- **Fields**: `type` (NotebookInstance), `name`, `customerManagedKey` (bool), `severity`,
+  `kmsKeyId` (the key ARN, or **"AWS managed (system-managed key)"** — never "Not encrypted"),
+  `encryptionAtRest` (always `"Enabled"`)
 
 ### SageMaker VPC Check
 - **APIs**: `sagemaker.list-domains` → `describe-domain`
@@ -105,8 +138,17 @@ Empty results produce a single "no resources found" row rather than being droppe
 ### SageMaker Endpoint Latency
 - **APIs**: `sagemaker.list-endpoints` → `describe-endpoint` → `describe-endpoint-config`; `cloudwatch.get-metric-statistics`
 - **Metrics**: `ModelLatency`, `OverheadLatency` (namespace `AWS/SageMaker`, dims `EndpointName`+`VariantName`, stat `Average`, period 86400, **last 7 days**, one datapoint/day)
-- **Logic**: report values (2 dp) or "No data"; no pass/fail
-- **Fields**: per endpoint `{endpointName, endpointArn, endpointStatus, region, variants:[{variantName, instanceType, dailyMetrics:[{date, ModelLatency, OverheadLatency}]}]}`; `summary.daysAnalyzed=7`
+- **Units: both metrics are published in MICROSECONDS.** Per the
+  [SageMaker AI CloudWatch metrics reference](https://docs.aws.amazon.com/sagemaker/latest/dg/monitoring-cloudwatch.html),
+  `ModelLatency` and `OverheadLatency` both carry `Units: Microseconds`. Every latency figure in the
+  report **must** carry its unit in the column header or the value itself. An unlabelled `152340.00`
+  reads as milliseconds to almost every reader — a 152-second model, when the true value is 152 ms.
+  That is a three-orders-of-magnitude error in the direction that triggers a false performance
+  escalation.
+- **Logic**: report values (2 dp) or "No data"; no pass/fail. Report **both** the raw microsecond
+  value and a milliseconds conversion (`µs / 1000`, 2 dp) so the number is readable without arithmetic.
+  Converting is not "inventing a number" — it is a unit change on a value an API returned.
+- **Fields**: per endpoint `{endpointName, endpointArn, endpointStatus, region, variants:[{variantName, instanceType, dailyMetrics:[{date, ModelLatencyMicroseconds, ModelLatencyMs, OverheadLatencyMicroseconds, OverheadLatencyMs}]}]}`; `summary.daysAnalyzed=7`. Column headers in the report table must read e.g. `Model Latency (ms)` / `Model Latency (µs)` — never a bare `ModelLatency`.
 
 ---
 
@@ -136,7 +178,7 @@ Empty results produce a single "no resources found" row rather than being droppe
 - **Fields**: `resourceType` (NotebookInstance / TrainingJob / EndpointConfig / App), `resourceName`, `instanceType`, `acceleratorType`
 
 ### Autoscaling Endpoint Check
-- **APIs**: `sagemaker.list-endpoints` → `describe-endpoint`; `application-autoscaling.describe-scalable-targets` + `describe-scaling-policies` (ServiceNamespace=`sagemaker`) — both in `AIDevOpsAgentAccessPolicy`.
+- **APIs**: `sagemaker.list-endpoints` → `describe-endpoint`; `sagemaker.list-inference-components` → `describe-inference-component` (to map IC targets back to their endpoint); `application-autoscaling.describe-scalable-targets` + `describe-scaling-policies` (ServiceNamespace=`sagemaker`) — all in `AIDevOpsAgentAccessPolicy`.
 - **Logic (dual-signal, three states — avoids false positives *and* false negatives):** classic
   Application Auto Scaling does not appear on `DescribeEndpoint`, so managed-scaling alone would
   falsely flag it. Evaluate both signals, then resolve to one of three states:
@@ -144,7 +186,7 @@ Empty results produce a single "no resources found" row rather than being droppe
   | Signals present | Mechanism | Verdict |
   |---|---|---|
   | `variant.ManagedInstanceScaling.Status === 'ENABLED'` | `Managed` | autoscaled — Informational |
-  | `describe-scalable-targets` returns a target on `sagemaker:variant:DesiredInstanceCount` **and** `describe-scaling-policies` returns ≥ 1 policy for that resource | `Application Auto Scaling` | autoscaled — Informational |
+  | `describe-scalable-targets` returns a target on **any scalable dimension applicable to the variant** (see the dimension table below) **and** `describe-scaling-policies` returns ≥ 1 policy for that same `ResourceId` + `ScalableDimension` | `Application Auto Scaling` | autoscaled — Informational |
   | target present but **no** scaling policy | `Application Auto Scaling (target only — no policy)` | **not effectively autoscaled** — see Severity |
   | neither signal | `None` | not autoscaled — see Severity |
 
@@ -154,29 +196,106 @@ Empty results produce a single "no resources found" row rather than being droppe
   covered by `AIDevOpsAgentAccessPolicy`, so the second call is free. If `application-autoscaling` is
   denied, fall back to managed-scaling-only and mark the finding lower-confidence. Endpoint status
   badge: InService=green, Failed=red, else blue.
+
+- **Match all three scalable dimensions — not just `DesiredInstanceCount`.** A single
+  `describe-scalable-targets` call with `ServiceNamespace=sagemaker` returns targets on **every**
+  SageMaker dimension, and the check must consider all of them. Matching only
+  `sagemaker:variant:DesiredInstanceCount` discards the dimension that Inference Component endpoints
+  actually scale on, so a correctly autoscaled IC endpoint is reported "not autoscaled" **and** gets
+  a remediation naming a dimension that does not apply to it — a false Medium plus wrong advice.
+
+  | Variant / endpoint shape | Scalable dimension | `ResourceId` format |
+  |---|---|---|
+  | Instance-backed variant | `sagemaker:variant:DesiredInstanceCount` | `endpoint/<EndpointName>/variant/<VariantName>` |
+  | Inference Component | `sagemaker:inference-component:DesiredCopyCount` | `inference-component/<InferenceComponentName>` |
+  | Serverless with Provisioned Concurrency | `sagemaker:variant:DesiredProvisionedConcurrency` | `endpoint/<EndpointName>/variant/<VariantName>` |
+
+  Note the **`ResourceId` for an Inference Component target does not contain the endpoint name**, so
+  it cannot be matched by string comparison against the endpoint. Resolve the association the other
+  way: `sagemaker.list-inference-components` (filtered by `EndpointNameEquals`) →
+  `describe-inference-component` returns `EndpointName` and `VariantName`. Build the IC-name → endpoint
+  mapping first, then attribute each `inference-component/<name>` target to its endpoint. An endpoint
+  whose ICs all carry a `DesiredCopyCount` target **with** a policy is autoscaled; report
+  `Mechanism = Application Auto Scaling (inference component)` and the IC names in `Details`.
+  Set `Scalable Dimension` on every row so the reader can see which mechanism was evaluated.
+- **Inference Component endpoints have two layers — evaluate both.** An IC endpoint's **host
+  variant** supplies the instances; the **inference components** are model copies placed onto them.
+  Scaling `DesiredCopyCount` only grows copies into capacity the host fleet already has, so an IC
+  endpoint whose components autoscale but whose host variant is fixed hits a hard ceiling: once the
+  instances are full, further copies cannot be placed and the endpoint stops scaling despite being
+  configured to. Emit **one row per layer** — the host variant keyed `(endpoint, variant)`, and each
+  component keyed `(endpoint, inference-component)` — and score them independently:
+
+  | Components autoscaled? | Host variant has managed instance scaling **or** a variant-level target + policy? | Host variant verdict |
+  |---|---|---|
+  | Yes | Yes | Informational (OK) — both layers scale |
+  | **Yes** | **No** | **Medium** — "inference components autoscale but the host instance fleet is fixed; copy count cannot grow beyond current host capacity". Recommendation: enable **managed instance scaling** on the variant so SageMaker AI adds instances as component copies are placed — this is the mechanism AWS documents for IC endpoints, in preference to a variant-level Application Auto Scaling target |
+  | No | No | Informational **for the host row** — the component row already carries the Medium for this endpoint. Do not emit both; see below |
+  | No | Yes | Informational (OK) for the host row; the component row carries its own finding |
+
+  **Do not double-count one endpoint.** When the components are not autoscaled, the component row's
+  Medium is the finding; the host row stays Informational with the note "host scaling not assessed
+  separately — see the inference component finding". Emitting a Medium on both layers for the same
+  endpoint inflates the severity counts and breaks run-to-run comparability, which is the same failure
+  the per-resource granularity rule exists to prevent. Exactly one Medium per endpoint per layer-pair.
 - **Serverless variants are out of scope.** A variant with `ServerlessConfig` scales to and from
   zero by design and cannot carry an Application Auto Scaling target on
   `sagemaker:variant:DesiredInstanceCount`. Report it as `Mechanism = Serverless`, `Autoscaling
-  Enabled = Yes`, severity **Informational** — never Medium. Only instance-backed variants are
-  eligible for a finding.
-- **Severity**: for an `InService` **instance-backed** variant —
+  Enabled = Yes`, severity **Informational** — never Medium. Only instance-backed variants and
+  Inference Components are eligible for a finding. If the serverless variant has
+  `ProvisionedConcurrency` set **and** a target on
+  `sagemaker:variant:DesiredProvisionedConcurrency`, report
+  `Mechanism = Serverless (provisioned concurrency autoscaling)`; still Informational either way.
+- **Severity**: for an `InService` variant that is **instance-backed or an Inference Component** —
   - autoscaled by **neither** signal → **Medium**. Recommendation: register an Application Auto
-    Scaling target on `sagemaker:variant:DesiredInstanceCount` **and attach a scaling policy**, or
-    enable managed instance scaling.
+    Scaling target **and attach a scaling policy** on the dimension that matches the variant's shape
+    — `sagemaker:variant:DesiredInstanceCount` for an instance-backed variant,
+    `sagemaker:inference-component:DesiredCopyCount` for an Inference Component — or enable managed
+    instance scaling. **Name the dimension that applies to the variant you are flagging**; quoting
+    `DesiredInstanceCount` at an IC endpoint is advice the operator cannot act on.
   - target registered but **no scaling policy** → **Medium**, worded distinctly: "scalable target
     registered but no scaling policy attached — the endpoint will not scale". Recommendation: attach
-    a target-tracking policy (e.g. on `SageMakerVariantInvocationsPerInstance`) to the existing
-    target. Do not report this variant as autoscaled.
-  - effectively autoscaled (managed scaling, or target + policy), or serverless → Informational (OK).
-- **Fields**: `Autoscaling Enabled` (Yes / No / Target only), `severity`, `Mechanism` (Managed / Application Auto Scaling / Application Auto Scaling (target only — no policy) / Serverless / None), `Policy Count`, `Enabled Variants`, `Total Variants`, `Details` (name, ARN, status, timestamps, config name, failure reason)
+    a target-tracking policy to the existing target — on
+    `SageMakerVariantInvocationsPerInstance` for an instance-backed variant, or
+    `SageMakerInferenceComponentConcurrentRequestsPerCopyHighResolution` for an Inference Component.
+    Do not report this variant as autoscaled.
+  - effectively autoscaled (managed scaling, or target + policy on any applicable dimension), or
+    serverless → Informational (OK).
+  - **IC host variant** whose components autoscale but which has no managed instance scaling and no
+    variant-level target + policy → **Medium**, worded as the capacity ceiling rather than as
+    "not autoscaled". Recommendation: enable managed instance scaling on the variant. See the
+    two-layer rule above, including the no-double-counting guard.
+- **Fields**: `Autoscaling Enabled` (Yes / No / Target only), `severity`, `Layer` (Host variant / Inference component / Variant), `Mechanism` (Managed / Application Auto Scaling / Application Auto Scaling (inference component) / Application Auto Scaling (target only — no policy) / Serverless / Serverless (provisioned concurrency autoscaling) / None), `Scalable Dimension` (the dimension evaluated, or '-'), `Policy Count`, `Enabled Variants`, `Total Variants`, `Details` (name, ARN, status, timestamps, config name, inference component names, failure reason)
+- **`Policy Count` is read, never inferred.** Report the number of policies `describe-scaling-policies`
+  actually returned for that exact `ResourceId` + `ScalableDimension`. Observed 2026-10-01: a run
+  reported `Policy Count 1` and Informational for an endpoint that had a registered target and **zero**
+  policies, which silently swallowed a Medium. A target is not a policy — if the policy list for a
+  resource is empty, `Policy Count` is `0` and the verdict is the target-only Medium.
 
 ### Sagemaker Savings Plan
-- **APIs**: `savingsplans.describe-savings-plans` (filter savings-plan-type=`SageMaker`, maxResults 100)
+- **APIs**: `savingsplans.describe-savings-plans` (filter savings-plan-type=`SageMaker`, maxResults 100) — **global API, call in `us-east-1` only** (see the global-API rule above)
 - **IAM (optional add-on):** `savingsplans:DescribeSavingsPlans` is **not** in `AIDevOpsAgentAccessPolicy`. If the permission is absent, report this check as **"not evaluated — permission not granted"** and continue — never a false "no Savings Plans found" on an AccessDenied.
 - **Scope:** Savings Plans data is meaningful only from the management/payer account; in a linked account it may be empty.
 - **Logic**: `remainingDays = round((end − now)/day)`; `status = remainingDays > 0 ? 'Active' : 'Expired'`
-- **Severity**: a plan expiring soon (`remainingDays` low) **or** no SageMaker Savings Plan on steady inference spend → **Medium**; healthy active coverage → Informational (OK). Recommendation on Medium: renew/purchase a SageMaker Savings Plan sized to steady spend.
-- **Fields**: plan fields + `remainingDays`, `status`, `severity`, `utilizationEstimate`, `region`; `summary`: totalSavingsPlans, sagemakerSavingsPlans, activePlans, expiredPlans, totalCommitment
+- **Severity thresholds (explicit — do not improvise them):** scored **only** from `remainingDays`,
+  which this check actually computes from the API response.
+  - `remainingDays <= 0` (expired) → **Medium**. Recommendation: the commitment has lapsed; that usage
+    is now billed on-demand — review current SageMaker usage in Cost Explorer and repurchase if it is
+    still steady.
+  - `0 < remainingDays <= 30` → **Medium**, worded as an expiry deadline with the date.
+    Recommendation: the plan expires in `<N>` days; decide on renewal before then.
+  - `30 < remainingDays <= 90` → **Low** (advance notice, no action yet).
+  - `remainingDays > 90` → Informational (OK).
+- **Never recommend purchasing a Savings Plan off an unmeasured premise.** "No plan on steady
+  inference spend" was previously a Medium, but this check measures **no spend at all** — it reads
+  plans, not usage, and neither `ce:GetCostAndUsage` for SageMaker spend nor any commitment-coverage
+  API is called here. A multi-year financial commitment recommended from an unverified assumption of
+  steady spend is the single most expensive thing a wrong finding in this report can cause. So:
+  **zero SageMaker Savings Plans found → Informational, not Medium.** State the observation ("no
+  SageMaker Savings Plan covers this account") and point the reader at **Cost Explorer → Savings Plans
+  recommendations**, which computes the recommendation from their actual usage. Do not name a
+  commitment amount, term, or savings percentage — see the no-invented-numbers rule.
+- **Fields**: plan fields + `remainingDays`, `expiryDate`, `status`, `severity`, `region`; `summary`: totalSavingsPlans, sagemakerSavingsPlans, activePlans, expiredPlans, totalCommitment. Report `totalCommitment` only as the API returned it; do **not** derive an estimated saving from it.
 
 ### Sagemaker Lifecycle Configurations
 - **APIs**: `sagemaker.list-notebook-instance-lifecycle-configs` + `sagemaker.list-studio-lifecycle-configs` (concatenated; list only)
@@ -192,14 +311,45 @@ Empty results produce a single "no resources found" row rather than being droppe
 ### Sagemaker Stale Endpoints Check
 - **APIs**: `sagemaker.list-endpoints` → `describe-endpoint`; `cloudwatch.get-metric-data`
 - **Metrics**: `Invocations` (namespace `AWS/SageMaker`, dims `EndpointName`+`VariantName`, stat `Sum`, period 86400, **last 90 days**)
-- **Logic**: find first non-zero invocation datapoint → `Last Invoked = "<N> days"`; default "Not invoked" if no data
-- **Severity**: **instance-backed** endpoint not invoked in ≥ 90 days (or never) → **Medium**
-  (idle instance-hours are billed continuously); **serverless** endpoint not invoked → **Low**
-  (hygiene only — serverless scales to zero, so there is no idle compute cost to recover).
-  Recently invoked → Informational (OK). Recommendation on Medium: delete or right-size the idle
-  endpoint. Do not recommend a costly remediation on a stale endpoint — prefer deletion over
-  reconfiguring something with no traffic.
-- **Fields**: endpoint describe fields + `Last Invoked`, `inferenceType`, `severity`
+- **Logic**: take the **most recent** non-zero invocation datapoint (the one with the greatest
+  timestamp) → `Last Invoked = "<N> days"` where `N = days between that timestamp and now`. If every
+  datapoint is zero or none are returned, `Last Invoked = "Not invoked"`.
+- **Read the latest non-zero datapoint, never the "first" one.** "First non-zero datapoint" is
+  order-dependent and wrong in the common case: `get-metric-data` returns timestamps ascending by
+  default, so the first non-zero point is the **oldest** invocation in the window. An endpoint
+  invoked every day for 90 days then reports `Last Invoked: 90 days` and is flagged Medium with a
+  "delete the idle endpoint" recommendation — on a busy production endpoint. Sort the datapoints by
+  timestamp descending (or set `ScanBy=TimestampDescending`) and take the first non-zero from that,
+  which is the same thing as the maximum timestamp with a non-zero `Sum`.
+- **Align `startTime` to midnight UTC.** With `period 86400`, CloudWatch anchors the daily buckets to
+  the request's `startTime`, **not** to calendar days. A start time of `now − 90 days` taken at
+  09:29 produces buckets running 09:29→09:29, so invocations from two different calendar days land in
+  one bucket stamped with the earlier date — and `Last Invoked` is then reported a day early. Observed
+  2026-10-01: an endpoint invoked on both 09-30 and 10-01 returned a single datapoint
+  `2026-09-30 = 51` under an unaligned start time, and two datapoints (`09-30 = 31`, `10-01 = 20`)
+  under a different one. Set `startTime` to **00:00:00Z** of the day 90 days back so buckets are
+  calendar days and the `<N> days` figure is reproducible between runs. Derive `Last Invoked` from the
+  **bucket timestamp** of the latest non-zero datapoint, and state that date in the row alongside the
+  day count so the reader can see what it was computed from.
+- **Guard on `CreationTime` before flagging "Not invoked".** A newly deployed endpoint has no
+  invocation history yet, so absent datapoints mean "too new to judge", not "idle". `describe-endpoint`
+  already returns `CreationTime`, so the guard costs nothing. If
+  `ageDays = (now − CreationTime) / day` is **< 90**, the endpoint cannot satisfy the 90-day staleness
+  test: report `Last Invoked = "Not invoked"`, `Age = "<N> days"`, severity **Informational** with the
+  note "endpoint is <N> days old — shorter than the 90-day staleness window", and emit **no**
+  recommendation. Without this guard a two-day-old endpoint is scored Medium and the report tells the
+  operator to delete something they just deployed.
+- **Severity**: for an endpoint with `ageDays ≥ 90` —
+  - **instance-backed**, not invoked within the 90-day window (or never invoked) → **Medium**
+    (idle instance-hours are billed continuously).
+  - **serverless**, not invoked → **Low** (hygiene only — serverless scales to zero, so there is no
+    idle compute cost to recover).
+  - invoked within the window → Informational (OK).
+
+  Any endpoint with `ageDays < 90` → **Informational**, regardless of invocation data.
+  Recommendation on Medium: delete or right-size the idle endpoint. Do not recommend a costly
+  remediation on a stale endpoint — prefer deletion over reconfiguring something with no traffic.
+- **Fields**: endpoint describe fields + `Last Invoked`, `CreationTime`, `Age` (days), `inferenceType`, `severity`
 
 ---
 
@@ -271,15 +421,36 @@ Empty results produce a single "no resources found" row rather than being droppe
 - **Fields**: `Endpoint Name`, `Variant Name`, `Current Instance Count` (or '-'), `Desired Instance Count` (or '-'), `Max Concurrency` (serverless, or '-')
 
 ### SageMaker Lifecycle Events
-- **APIs**: `health.describe-events` (services=`SAGEMAKER`, maxResults 100) → `health.describe-affected-entities` per event
+- **APIs**: `health.describe-events` (services=`SAGEMAKER`, maxResults 100) → `health.describe-affected-entities` per event — **global API, call in `us-east-1` only** (see the global-API rule above); it returns events for every region, which the Region scope rule below then filters
 - **IAM:** `health:DescribeEvents` and `health:DescribeAffectedEntities` are covered by `AIDevOpsAgentAccessPolicy`, but the Health API requires a Business/Enterprise Support plan. If the permission or support tier is absent, report this check as **"not evaluated — permission not granted"** and continue.
 - **Event status scope**: default to **`open` and `upcoming` only**. Do not pull `closed` events —
   they are historical noise that crowds out actionable rows (a single account accumulated 20+
   closed maintenance events). Include `closed` only when the user explicitly asks for event history.
 - **Logic**: inventory of AWS Health events, with a severity derived from actionability.
-- **Severity**: an event with `eventScopeCode`/entity status indicating **ACTION_REQUIRED** and a
-  status of `open` or `upcoming` → **Medium**; all other events → Informational. Recommendation on
-  Medium: state the required action and the event's `startTime` as the deadline.
+- **Read actionability from `Event.actionability` — and from nowhere else.** The
+  [`Event`](https://docs.aws.amazon.com/health/latest/APIReference/API_Event.html) object returned by
+  `describe-events` carries a dedicated field:
+
+  | Field | Valid values | Use |
+  |---|---|---|
+  | `actionability` | `ACTION_REQUIRED` \| `ACTION_MAY_BE_REQUIRED` \| `INFORMATIONAL` | **the severity signal** |
+  | `statusCode` | `open` \| `closed` \| `upcoming` | event lifecycle state |
+  | `eventScopeCode` | `PUBLIC` \| `ACCOUNT_SPECIFIC` \| `NONE` | public vs account-specific |
+  | `eventTypeCategory` | `issue` \| `accountNotification` \| `scheduledChange` \| `investigation` | event kind |
+  | entity `statusCode` (from `describe-affected-entities`) | `IMPAIRED` \| `UNIMPAIRED` \| `UNKNOWN` \| `PENDING` \| `RESOLVED` | per-resource state |
+
+  Neither `eventScopeCode` nor the entity `statusCode` can ever equal `ACTION_REQUIRED` — testing
+  them for it makes the condition unsatisfiable, so **every** event falls through to Informational and
+  the most time-critical items in the whole report never reach the severity-ranked Executive Summary.
+  That is exactly the failure this check's severity rule exists to prevent. `describe-events` also
+  accepts an `actionabilities` filter; using it is optional — if the runtime's botocore does not
+  recognise the parameter, drop the filter and classify client-side from the returned field rather
+  than failing the check.
+- **Severity**: an event with `actionability == ACTION_REQUIRED` and `statusCode` of `open` or
+  `upcoming` → **Medium**; `actionability == ACTION_MAY_BE_REQUIRED` with `statusCode` `open` or
+  `upcoming` → **Low** (inspection needed to determine whether action is required); everything else,
+  including `INFORMATIONAL` and any event with `actionability` absent → Informational. Recommendation
+  on Medium: state the required action and the event's `startTime` as the deadline.
   Rationale: these events carry hard externally-imposed deadlines (scheduled notebook maintenance,
   platform end-of-support). Leaving them Informational keeps them out of the severity-ranked
   Executive Summary, so the most time-critical items in the whole report go unranked — observed in
@@ -352,7 +523,7 @@ Empty results produce a single "no resources found" row rather than being droppe
 - **Recommendation themes** (SageMaker AI only; tailor to observed resources):
   - **Model lifecycle & MLOps** — version models in the SageMaker Model Registry, automate build/train/deploy with SageMaker Pipelines, and gate promotions with approval status (ML Lens: MLOps).
   - **Endpoint efficiency & scaling** — right-size instances, enable autoscaling, and prefer serverless/async for spiky or latency-tolerant traffic (ML Lens: Performance/Cost).
-  - **Inference cost** — use Inferentia/Trainium where supported, adopt SageMaker Savings Plans on steady inference spend, and retire stale endpoints (ML Lens: Cost Optimization).
+  - **Inference cost** — use Inferentia/Trainium where supported, evaluate SageMaker Savings Plans against Cost Explorer's usage-derived recommendations rather than an assumed spend level, and retire stale endpoints (ML Lens: Cost Optimization).
   - **Security & isolation** — CMK encryption on endpoints/notebooks, `VpcOnly` Studio domains, network-isolated models, least-privilege execution roles (ML Lens: Security).
   - **Generative AI hosting** — for FM/LLM endpoints, monitor `ModelLatency`/token throughput, enable data capture for evaluation, and guard against prompt-injection at the application tier (GenAI Lens).
   - **Agentic workloads** — when SageMaker hosts models behind agents, apply tool-access least privilege, observability on agent/tool calls, and human-in-the-loop for high-impact actions (Agentic AI Lens).

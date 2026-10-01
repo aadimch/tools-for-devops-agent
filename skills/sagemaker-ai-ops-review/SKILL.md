@@ -1,16 +1,17 @@
 ---
-name: sagemaker-ops-review
+name: sagemaker-ai-ops-review
 description: Amazon SageMaker AI Operational Review. Use this skill when a user asks to
   review, audit, or assess Amazon SageMaker AI workloads (endpoints, training jobs,
-  pipelines, notebooks, feature store, model registry, domains) for best-practices
-  posture across Security, Performance, Cost Optimization, Service Quotas, Resiliency,
-  Operational Excellence, Sustainability, and Best Practices. Triggers on requests like
-  "SageMaker review", "SageMaker ops review", "SageMaker best practices audit", "ML ops
-  assessment", "review my SageMaker account", "SageMaker health check", or "ORR for
-  SageMaker".
+  pipelines, notebooks, Studio domains) for best-practices posture across Security,
+  Performance, Cost Optimization, Service Quotas, Resiliency, Operational Excellence,
+  Sustainability, and Best Practices — including as an Operational Readiness Review (ORR)
+  before a workload goes to production. Triggers on requests like "SageMaker AI review",
+  "SageMaker ops review", "SageMaker best practices audit", "ML ops assessment", "review
+  my SageMaker account", "SageMaker health check", "pre-production readiness check for
+  SageMaker", or "Operational Readiness Review (ORR) for SageMaker".
 metadata:
   author: jacklunn
-  version: "1.0.0"
+  version: "1.1.1"
   aws-devops-agent-skills.agent-types: "Chat tasks, Evaluation"
   aws-devops-agent-skills.aws-services: "Amazon SageMaker AI, Amazon CloudWatch, AWS Service Quotas"
   aws-devops-agent-skills.technical-domains: "AI/ML"
@@ -30,9 +31,15 @@ invocations, launches no jobs, and reads no inference payloads.
 
 ## When to Use
 
-Activate this skill when the user asks to review, audit, or assess an Amazon SageMaker
-workload, check SageMaker best-practices posture, or run a SageMaker operational (readiness)
-review — for one pillar, a subset of checks, or the full set.
+Activate this skill when the user asks to review, audit, or assess an Amazon SageMaker AI
+workload, check SageMaker AI best-practices posture, or run an **Operational Readiness Review
+(ORR)** for SageMaker AI — for one pillar, a subset of checks, or the full set.
+
+The **ORR** use case is the primary one: run this review **before a team deploys a SageMaker AI
+workload to production**, as the readiness gate. Because every finding is severity-ranked and
+carries a concrete remediation, the report doubles as the pre-production punch list — clear the
+High and Medium findings, then launch. It is equally suited to a recurring cadence afterwards
+(weekly or monthly posture review) and to an ad-hoc audit of a newly inherited account.
 
 ## Pillars and Checks
 
@@ -55,7 +62,7 @@ each check's APIs, logic, thresholds, and output fields.
 Confirm with the user:
 - **Account IDs** and **regions** to review (default: current account via `sts:GetCallerIdentity`). If regions are unspecified, discover active regions with `ce:GetCostAndUsage` (SERVICE = "Amazon SageMaker", grouped by REGION); Cost Explorer is payer-scoped, so if it returns nothing, **fall back** to sweeping a default region set with `sagemaker.list-endpoints`/`list-domains`/`list-notebook-instances`. Conclude "no activity" only after both come back empty.
 - **Pillars or individual checks** to run (default: all 8 pillars / 20 checks).
-- **Date range** for time-windowed checks (Latency = last 7 days, Stale Endpoints = last 90 days, Service Quotas usage = last 60 minutes — these windows are fixed by the checks).
+- **Date range** for time-windowed checks (Latency = last 7 days, Stale Endpoints = last 90 days, Service Quotas usage = **trailing 24 hours** — these windows are fixed by the checks and must not be shortened; `references/pillar-checks.md` is authoritative on each).
 
 ## Step 2: Run the Checks
 
@@ -65,6 +72,18 @@ and build the check's result rows. Follow this behavior:
 - **Read-only.** `List*` then `Describe*`; paginate every call that returns a token.
 - **Per-check isolation.** Catch and record errors per check as a `{ error }` row — a failed
   check never aborts the review.
+- **Three APIs are global — call them once in `us-east-1`, never inside the per-region loop:**
+  `health` (`describe-events`, `describe-affected-entities`), `ce` (`get-cost-and-usage`), and
+  `savingsplans` (`describe-savings-plans`). They have no regional endpoints. Looping them per
+  region fails everywhere but `us-east-1`, and the failure mimics the checks' legitimate
+  degradation paths — a Health error looks like "no Business/Enterprise Support plan", a Savings
+  Plans error looks like "permission not granted" — so the report states a plausible wrong reason
+  instead of surfacing a bug. Health returns events for all regions; filter to the in-scope
+  regions client-side.
+- **Units are part of every number.** Where a metric has a unit, the report carries it. In
+  particular `ModelLatency` / `OverheadLatency` are published in **microseconds** — label the
+  column and also give the millisecond conversion. An unlabelled six-figure latency reads as
+  milliseconds and manufactures a false performance escalation.
 - **Permissions / graceful degradation.** Nearly all APIs are covered by the AWS-managed
   `AIDevOpsAgentAccessPolicy` on the DevOps Agent role. The one exception —
   `savingsplans:DescribeSavingsPlans` (Savings Plan check) — is an optional add-on. The AWS
@@ -77,12 +96,15 @@ and build the check's result rows. Follow this behavior:
 - **Severity-ranked findings.** Assign each finding a severity per `references/pillar-checks.md`:
   **High**, **Medium**, **Low**, or **Informational** (inventory checks with no pass/fail signal).
   Checks with a compliance signal set severity as defined there — e.g. Studio domain not `VpcOnly`
-  → High; no autoscaling / stale endpoint / unencrypted notebook / no VPC config / lapsed Savings
-  Plan → Medium; missing tags / data capture disabled → Low. The Service Quotas Check derives its
-  tier from utilization (≥ 90% High, ≥ 75% Medium, else Low; Unknown if no usage data).
+  → High; no autoscaling / an Inference Component endpoint whose host instance fleet is fixed while its
+  components autoscale / idle endpoint at least 90 days old / notebook with no customer-managed
+  KMS key / no VPC config / Savings Plan expired or within 30 days of expiry / AWS Health event with
+  `actionability = ACTION_REQUIRED` → Medium; missing tags / data capture disabled → Low. The Service
+  Quotas Check derives its tier from utilization (≥ 90% High, ≥ 75% Medium, else Low; Unknown if no
+  usage data).
 - **One finding = one non-compliant resource in one check**, keyed by `(check, region, resource)`.
-  Do **not** aggregate resources into a single finding — three unencrypted notebooks are three
-  Medium findings, not one. Aggregation breaks the severity counts and makes runs incomparable.
+  Do **not** aggregate resources into a single finding — three notebooks with no customer-managed
+  key are three Medium findings, not one. Aggregation breaks the severity counts and makes runs incomparable.
 - **One recommendation per High or Medium finding.** Emit exactly one concrete, SageMaker-specific
   recommendation for every High and Medium finding. Low and Informational findings do not require one.
 - Use only the severities each check defines; do **not** invent thresholds a check does not define.
@@ -170,6 +192,35 @@ Rules:
   nothing gets its own empty-state row (Step 2), never the terse message.
 - Keep all guidance and recommendations specific to Amazon SageMaker AI.
 
+## Scope Limitations — state these in the report, do not overclaim past them
+
+These bound what the review can honestly conclude. The skill's README is **not** packaged into the
+uploaded skill, so these are restated here where the runtime can actually read them. Where a
+limitation applies to a check you ran, say so in that check's **Guidance** rather than letting the
+reader assume wider coverage.
+
+- **`Check Encryption` covers notebook instances only.** Training jobs, processing jobs, endpoint
+  configs, S3 model artifacts, and Feature Store stores are **not** assessed for encryption. Never
+  present the Security pillar as a complete encryption audit — name the gap. Note also that a
+  notebook without a `KmsKeyId` is still encrypted (system-managed key); the finding is the absence
+  of a **customer-managed** key, never "not encrypted".
+- **No Feature Store or Model Registry checks.** Neither is inventoried or assessed. If a user asks
+  about feature groups or model packages, say plainly that this review does not cover them rather
+  than returning a clean report that implies they passed.
+- **Control-plane and metrics only.** Configuration and CloudWatch signals. The review cannot assess
+  model quality, training convergence, data drift, bias, or anything needing inference payloads or
+  job artifacts.
+- **No cost figures.** Cost Explorer is used for region discovery only, never spend attribution. The
+  Savings Plan check reports coverage and expiry — not dollar savings, and it measures no spend at
+  all, so it never recommends a purchase off an assumed spend level.
+- **Point-in-time.** Findings reflect state at run time. Service Quotas utilization is scored over a
+  fixed trailing 24-hour window, so a spike outside it is invisible.
+- **Best Practices pillar is advisory.** Well-Architected-grounded guidance, no per-resource findings,
+  no API calls.
+- **Large estates may need scoping.** Many endpoints across many regions can exhaust the run budget;
+  if a run is at risk of truncating, tell the user to scope to fewer regions or pillars rather than
+  silently dropping checks.
+
 ## Data Source Boundaries
 
 Native AWS APIs only: `sagemaker`, `cloudwatch` (`get-metric-statistics`, `get-metric-data`,
@@ -177,5 +228,6 @@ Native AWS APIs only: `sagemaker`, `cloudwatch` (`get-metric-statistics`, `get-m
 `describe-scaling-policies`), `servicequotas` (`get-service-quota`), `ce` (`get-cost-and-usage`
 for region discovery), `health` (`describe-events`, `describe-affected-entities`), plus the one
 optional add-on `savingsplans` (`describe-savings-plans`). All but that add-on are covered by
-the AWS-managed `AIDevOpsAgentAccessPolicy`. No data-plane calls and no non-AWS tooling — the
-skill is self-contained on the DevOps Agent's cloud-source IAM role.
+the AWS-managed `AIDevOpsAgentAccessPolicy`. `health`, `ce`, and `savingsplans` are **global** —
+call each once against `us-east-1`, outside the per-region loop. No data-plane calls and no
+non-AWS tooling — the skill is self-contained on the DevOps Agent's cloud-source IAM role.
