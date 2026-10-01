@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.4
+
+Eval coverage only. No change to the skill's instructions.
+
+- Restored the three eval definitions whose subject matter the 1.0.1 and 1.0.2 fixes were
+  built for: `control-plane-log-dead`, `capacity-block-expiry` and `xid-48-reboot-first`.
+  They had been dropped when the set was rebuilt around resources that actually resolve,
+  which left the three changes most tied to the review with nothing covering them. Each
+  grades method rather than outcome, because their conditions cannot be manufactured on
+  demand: a dead control-plane log, a live Capacity Block termination, and a genuine hardware
+  double-bit ECC fault. The tool requires `expected_output` on every non-negative chat eval,
+  so a trigger-only entry is not expressible; the `expected_output` states the procedure the
+  skill has to demonstrate instead.
+- Functional re-run as v5: 9 evals, 3 iterations, 48 runs, no execution failures. All three
+  restored evals score above their no-skill baseline, which is what they exist to protect.
+
 ## 1.0.3
 
 Changes driven by the functional eval, with the diagnosis corrected after a closer look at
