@@ -1,19 +1,19 @@
 {
-  "timestamp": "2026-10-01T19:03:57Z",
-  "version": "v9",
+  "timestamp": "2026-10-01T19:49:51Z",
+  "version": "v10",
   "model": "us.anthropic.claude-sonnet-5",
   "iterations": 3,
   "avg_confidence": "high",
   "consistency": {
-    "consistency_score": 100,
+    "consistency_score": 94,
     "reports": [
       {
         "iteration": 1,
-        "result": "passed",
-        "score": 100,
+        "result": "failed",
+        "score": 93,
         "total": 17,
-        "passed": 14,
-        "failed": 0,
+        "passed": 13,
+        "failed": 1,
         "skipped": 3,
         "warning": 0,
         "errored": 0,
@@ -73,7 +73,7 @@
           "passed"
         ],
         "confidences": [
-          "high",
+          "medium",
           "medium",
           "medium"
         ],
@@ -84,17 +84,17 @@
         "id": "BP-03",
         "name": "Detailed reference materials must not be in body",
         "results": [
-          "passed",
+          "failed",
           "passed",
           "passed"
         ],
         "confidences": [
           "medium",
           "high",
-          "medium"
+          "high"
         ],
-        "avg_confidence": "medium",
-        "consistent": true
+        "avg_confidence": "high",
+        "consistent": false
       },
       {
         "id": "BP-04",
@@ -186,10 +186,10 @@
         ],
         "confidences": [
           "medium",
-          "high",
+          "medium",
           "high"
         ],
-        "avg_confidence": "high",
+        "avg_confidence": "medium",
         "consistent": true
       },
       {
@@ -201,11 +201,11 @@
           "passed"
         ],
         "confidences": [
+          "medium",
           "high",
-          "high",
-          "high"
+          "medium"
         ],
-        "avg_confidence": "high",
+        "avg_confidence": "medium",
         "consistent": true
       },
       {
@@ -218,7 +218,7 @@
         ],
         "confidences": [
           "high",
-          "high",
+          "medium",
           "high"
         ],
         "avg_confidence": "high",
