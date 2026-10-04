@@ -156,9 +156,23 @@ ACCOUNT_VALUE_RE = re.compile(r"([0-9]{12})(?:_([0-9]+))?")
 # (``arn:aws:s3:::my-bucket``), the literal ``aws``
 # (``arn:aws:iam::aws:policy/ReadOnlyAccess``) or a redaction suffix
 # (``012345678901_1``) all still parse — and are then handled on their merits.
-# An ARN whose account is a template expression such as ``${AWS::AccountId}``
-# does not parse at all, because the braces hold colons of their own; that costs
-# nothing, since such an ARN names no account either.
+# Every field before the resource also accepts a CloudFormation template
+# expression such as ``${AWS::Region}``, which is why ARN_TEMPLATE_FIELD below
+# swallows the braces whole: ``${AWS::Region}`` carries a ``::`` of its own, so
+# without it the fields cannot be lined up and the match fails outright. The
+# field that matters there is not the templated one but the account beside it --
+# ``arn:aws:lambda:${AWS::Region}:<a literal account>:layer:X`` is how a SAM
+# template names a published layer, and a failed parse means that literal
+# account is neither proved nor reported. A template expression in the account
+# field itself stays silent, but silent because the field is not twelve digits,
+# which is a judgement ``arn_accounts`` makes, rather than because the ARN
+# failed to parse.
+#
+# Only the ``${...}`` form is covered, because that is the one this repository
+# uses. An ARN written with another placeholder syntax in a field before the
+# resource -- ``{Region}``, ``<region>``, ``%REGION%`` -- still fails to parse,
+# and an account standing beside one of those would go unreported. See the
+# documented gaps in CONTRIBUTING.md.
 #
 # The partition is ``aws`` plus any number of lowercase suffixes, which covers
 # the three in practice: ``aws``, ``aws-cn``, ``aws-us-gov``. The region may be
@@ -176,12 +190,17 @@ ACCOUNT_VALUE_RE = re.compile(r"([0-9]{12})(?:_([0-9]+))?")
 # should also be silent, but silent because the account field is not twelve
 # digits, which is a judgement ``arn_accounts`` makes, rather than because the
 # ARN failed to parse.
+#
+# A ``${...}`` template expression, matched before the plainer classes so the
+# braces are consumed as one unit rather than left to a class that would stop at
+# the first ``:`` inside them.
+ARN_TEMPLATE_FIELD = r"\$\{[^}]*\}"
 ARN_RE = re.compile(
     r"arn:"
-    r"(?P<partition>\*|aws(?:-[a-z0-9*]+)*):"
-    r"(?P<service>[a-z0-9*][a-z0-9*-]*):"
-    r"(?P<region>[a-z0-9*-]*):"
-    r"(?P<account>[0-9A-Za-z_*-]*):"
+    r"(?P<partition>" + ARN_TEMPLATE_FIELD + r"|\*|aws(?:-[a-z0-9*]+)*):"
+    r"(?P<service>" + ARN_TEMPLATE_FIELD + r"|[a-z0-9*][a-z0-9*-]*):"
+    r"(?P<region>" + ARN_TEMPLATE_FIELD + r"|[a-z0-9*-]*):"
+    r"(?P<account>" + ARN_TEMPLATE_FIELD + r"|[0-9A-Za-z_*-]*):"
     # The resource ends where the surrounding text begins. Whitespace, a quote,
     # a backtick, a backslash (an ARN inside an escaped JSON string ends at the
     # escape), a comma and the closing brackets are all excluded, because each
@@ -1031,6 +1050,18 @@ EXTRACTION_CASES: tuple[tuple[str, str, str, list[str]], ...] = (
         [],
     ),
     (
+        "a template expression in the region still yields the account beside it",
+        "mcp/example/template.yaml",
+        "      - !Sub arn:aws:lambda:${AWS::Region}:123456789012:layer:Example:24",
+        ["123456789012"],
+    ),
+    (
+        "a template expression in the account field itself yields nothing",
+        "mcp/example/template.yaml",
+        "      - !Sub arn:aws:iam::${AWS::AccountId}:role/Example",
+        [],
+    ),
+    (
         "ARNs are read in any file type, journal fields are not",
         "evals/benchmark.json",
         '{"cluster": "arn:aws:eks:us-east-1:111122223333:cluster/example",'
@@ -1105,6 +1136,20 @@ REPORTING_CASES: tuple[tuple[str, str, str, str, list[str]], ...] = (
         "skills/example/references/iam-policy.json",
         "",
         '      "Resource": "arn:aws:iam::*:role/ExampleRole"',
+        [],
+    ),
+    (
+        "an ARN whose region is a template expression is reported whole",
+        "mcp/example/template.yaml",
+        "",
+        "      - !Sub arn:aws:lambda:${AWS::Region}:123456789012:layer:Example:24",
+        ["arn:aws:lambda:${AWS::Region}:123456789012:layer:Example:24"],
+    ),
+    (
+        "an ARN whose account is a template expression is not reported",
+        "mcp/example/template.yaml",
+        "",
+        "      - !Sub arn:aws:iam::${AWS::AccountId}:role/Example",
         [],
     ),
     (
