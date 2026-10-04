@@ -189,6 +189,17 @@ Only these extensions are permitted inside **skill** directories (enforced by `s
 - `.claude/` directories should not be committed (except CLAUDE.md).
 - `.DS_Store` and other OS files should not be committed.
 
+## AWS Identifiers
+
+A pull request check (`.github/workflows/scan-aws-identifiers.yml`, running `.github/scripts/scan_aws_identifiers.py`) reports unredacted AWS identifiers and applies to every file in the repository, not only to skills. See the "Scanning for AWS Identifiers" section of [CONTRIBUTING.md](../../CONTRIBUTING.md).
+
+- Two patterns are matched: an AWS account ID as exactly twelve digits with no digit on either side, and an EC2 instance ID as `i-` plus either eight or seventeen hexadecimal characters.
+- **Only the lines a pull request adds are scanned.** `main` already carries real-looking identifiers in committed eval results and example ARNs, so a whole-file scan would fail contributors for content they did not write. Renames are detected, so moving such a file reports nothing.
+- Three ways to resolve a finding: redact the value; add it to `.github/aws-identifier-allowlist.json` with a mandatory reason; or put an `aws-id-ok: <reason>` comment on the line, which works in the comment-bearing file types only. JSON has no comment syntax, so the allowlist is the route for JSON content.
+- The allowlist parser fails closed: invalid JSON, a missing key, or a blank reason grants no allowance and fails the check, so a typo cannot silently waive a leak. The skill evaluation tool's redaction placeholders `012345678901` and `i-1234567890abcdef0` are allowlisted, suffixed forms included.
+- The `needs-id-redact` label is applied by automation when the check fails and removed when it passes. Do not add or remove it by hand.
+- Identifiers already on `main` are a separate follow-up change. Do not clean them up opportunistically in an unrelated pull request — the check never reports them, since it only reads added lines.
+
 ## Adding a New Skill
 
 1. Create a new directory under `skills/` with the skill name.
