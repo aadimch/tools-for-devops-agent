@@ -195,8 +195,13 @@ Two things are matched:
 
 | Identifier | Shape |
 | --- | --- |
-| AWS account ID | exactly twelve digits with no digit on either side, so `arn:aws:iam::123456789012:role/Example` matches while a thirteen-digit number doesn't |
+| AWS account ID | exactly twelve digits with no letter or digit on either side, so `arn:aws:iam::123456789012:role/Example` matches while a thirteen-digit number doesn't |
 | EC2 instance ID | `i-` followed by either eight hexadecimal characters (the old form) or seventeen (the current one), case-insensitive |
+
+Two things that look like an account ID are deliberately not reported, because both occur in this repository's committed eval output and neither names an account:
+
+- **The last group of a UUID.** A UUID ends in twelve hexadecimal characters, so roughly one in 250 ends in twelve digits — `a618bd73-f5dc-4e6b-b1f4-123412341234`. Only a full `8-4-4-4-` hex prefix is skipped, so an account ID that merely follows a hyphen, as in `stack-1234-111122223333`, is still reported.
+- **A twelve-digit run inside a longer hexadecimal token.** `eni-097816109986f5e1d` is a network interface, and the twelve digits sitting in the middle of it name no account. The same applies to the other resource IDs built from a hex blob: `subnet-`, `vol-`, `sg-`, `snap-`, `ami-`.
 
 **Only the lines your pull request adds are scanned.** Removed lines, context lines, and lines you didn't touch are all ignored. That's deliberate: `main` already carries real-looking identifiers in committed eval results and in example ARNs, so a whole-file scan would fail you for content you never wrote, and the only way to go green would be to clean up someone else's lines. Renames are detected too, so moving a file that already contains identifiers adds no lines and reports nothing.
 

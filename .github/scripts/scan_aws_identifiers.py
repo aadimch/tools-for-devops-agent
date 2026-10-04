@@ -24,9 +24,17 @@ added nothing. With it, a pure rename produces no added lines at all.
 
 Two patterns are matched:
 
-* **AWS account ID** — exactly twelve digits with no digit on either side, so
-  ``arn:aws:iam::123456789012:role/Example`` matches while a thirteen-digit
-  number does not.
+* **AWS account ID** — exactly twelve digits with no letter or digit on either
+  side, so ``arn:aws:iam::123456789012:role/Example`` matches while a
+  thirteen-digit number does not. Two lookalikes are excluded, both of which
+  occur in this repository's committed eval output: the last group of a UUID
+  (``a618bd73-f5dc-4e6b-b1f4-123412341234``, since a UUID ends in twelve
+  hexadecimal characters and about one in 250 of those is all digits), and a
+  twelve-digit run inside a longer hexadecimal token (``eni-097816109986f5e1d``
+  names a network interface, and the twelve digits in the middle of it name no
+  account at all). Only a full ``8-4-4-4-`` hex prefix is skipped, so an
+  account ID that merely follows a hyphen — ``stack-1234-111122223333`` — is
+  still reported.
 * **EC2 instance ID** — ``i-`` followed by either eight hexadecimal characters
   (the old form) or seventeen (the current form), case-insensitive, with no
   other hexadecimal word character on either side.
@@ -78,17 +86,44 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-# Twelve digits with no digit on either side. The lookarounds are what stop a
-# longer run of digits from matching a twelve-digit window inside itself, so
-# neither a thirteen-digit timestamp nor a long id is reported.
-#
-# The optional ``_<digits>`` group is the skill evaluation tool's redaction
-# suffix. It is written as a lookahead-guarded optional group rather than with
-# ``\b`` on purpose: ``_`` is a word character, so ``\b``-anchored patterns do
-# not match the suffixed form at all, and a suffixed placeholder would slip
-# past the allowlist comparison as if it were a different value. Here the group
-# consumes the suffix, and the suffix is then stripped before the comparison.
-ACCOUNT_RE = re.compile(r"(?<![0-9])([0-9]{12})(?:_([0-9]+))?(?![0-9])")
+# Twelve digits, with two guards against things that merely look like an
+# account ID. Both were measured against this repository rather than guessed:
+# with neither guard, 35 of the 8660 twelve-digit runs in the tree are not
+# account IDs at all.
+ACCOUNT_RE = re.compile(
+    # No alphanumeric character on either side, rather than no digit. Digits
+    # alone let a twelve-digit run inside a longer hex token through, which is
+    # how the digits inside `eni-097816109986f5e1d` got reported as an account
+    # ID — 24 lines of committed eval output in this repository did that. The
+    # same guard covers every other AWS resource id built from a hex blob:
+    # subnet, vol, sg, snap, ami. The cost is a twelve-digit account ID written
+    # flush against a letter, which no AWS output produces and which did not
+    # occur anywhere in the tree.
+    r"(?<![0-9A-Za-z])"
+    # Not the last group of a UUID. A UUID's final group is twelve characters
+    # of hex, so roughly one in 250 is all digits — 11 of them sit in committed
+    # eval output here, as in `a618bd73-f5dc-4e6b-b1f4-123412341234`. The guard
+    # spells out the whole 8-4-4-4 prefix instead of just rejecting a preceding
+    # hyphen, so an account ID that merely follows a hyphen is still reported:
+    # `stack-1234-111122223333` matches. Every element is a fixed repetition,
+    # which is what lets Python's `re` accept it — the module rejects a
+    # variable-width lookbehind, and `grep -E` and ripgrep's default engine
+    # reject a lookbehind outright.
+    r"(?<![0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-)"
+    r"([0-9]{12})"
+    # The optional ``_<digits>`` group is the skill evaluation tool's redaction
+    # suffix. It is written as a boundary-guarded optional group rather than
+    # with ``\b`` on purpose: ``_`` is a word character, so ``\b``-anchored
+    # patterns do not match the suffixed form at all, and a suffixed
+    # placeholder would slip past the allowlist comparison as if it were a
+    # different value. Here the group consumes the suffix, and the suffix is
+    # then stripped before the comparison.
+    r"(?:_([0-9]+))?"
+    # Rejects a thirteenth digit, so a longer run of digits never matches a
+    # twelve-digit window inside itself and a millisecond timestamp stays
+    # unreported.
+    r"(?![0-9A-Za-z])"
+)
 
 # ``i-`` plus either of the two legal lengths, seventeen hexadecimal characters
 # (current) or eight (the old form), with the seventeen-character alternative
@@ -584,21 +619,81 @@ def _write_summary(
         fh.write("\n".join(lines) + "\n")
 
 
-def self_check(accounts: set[str], instances: set[str]) -> list[str]:
-    """Confirm every allowlist entry is suppressed bare and with a ``_N`` suffix.
+# Boundary cases for the account-ID pattern, checked against the pattern itself
+# rather than through the allowlist, so each one states a property of the
+# matching and nothing else. Every entry is a string to match and the list of
+# account IDs the pattern is expected to pull out of it.
+#
+# These are here because both guards in ACCOUNT_RE suppress matches, and a
+# suppressing guard that grows too broad fails silently: identifiers stop being
+# reported, and a passing check is the only symptom.
+#
+# Every case that is expected to match uses an allowlisted documentation
+# placeholder rather than an invented twelve-digit value. The cases exercise
+# ACCOUNT_RE directly, and the allowlist is applied later, in
+# ``scan_added_lines`` — so a placeholder proves the pattern matches just as
+# well as a real-looking number would, and this file does not become the one
+# place in the repository carrying identifiers that the check itself would
+# report. Allowlist suppression is covered by the second group of cases in
+# ``self_check``.
+ACCOUNT_PATTERN_CASES: tuple[tuple[str, list[str]], ...] = (
+    # The UUID guard. Nothing to report: the twelve digits are a UUID's final
+    # group.
+    ("a618bd73-f5dc-4e6b-b1f4-123412341234", []),
+    # Upper-case hex is a UUID too.
+    ("A618BD73-F5DC-4E6B-B1F4-123412341234", []),
+    # The guard must not reach further than a real 8-4-4-4 hex prefix. Here the
+    # first group is not hex, so this is not a UUID and the digits are reported.
+    ("zzzzzzzz-f5dc-4e6b-b1f4-123456789012", ["123456789012"]),
+    # A hyphen before the digits is not a UUID on its own.
+    ("stack-1234-111122223333", ["111122223333"]),
+    # The alphanumeric guard. A twelve-digit run inside a longer hex token
+    # belongs to the token, not to an account.
+    ("eni-097816109986f5e1d", []),
+    ("vol-0a1b2c3d123456789012", []),
+    # Still reported in the places an account ID actually appears.
+    ("arn:aws:iam::123456789012:role/Example", ["123456789012"]),
+    ('"accountId": "123456789012",', ["123456789012"]),
+    ("123456789012", ["123456789012"]),
+    # A thirteen-digit millisecond timestamp has no twelve-digit window to find.
+    ("1727000000000", []),
+    # The redaction suffix is consumed, and the identifier reported without it.
+    ("012345678901_7", ["012345678901"]),
+)
 
-    The redaction suffix is the one part of the matching that is easy to get
-    silently wrong: a ``\\b``-anchored pattern does not match
-    ``i-1234567890abcdef0_3`` at all, so a regression there would stop
-    *reporting* suffixed placeholders rather than start reporting them, and no
-    pull request would fail to reveal it. This walks every entry in the
-    allowlist in use, builds a synthetic added line for the bare form and for a
-    ``_7``-suffixed form, scans it, and reports any that produced a finding.
+
+def self_check(accounts: set[str], instances: set[str]) -> list[str]:
+    """Confirm the pattern boundaries hold and every allowlist entry is suppressed.
+
+    Two groups of cases, both covering failures that are silent — they stop
+    identifiers from being *reported* rather than start reporting things
+    falsely, so a passing check is the only symptom and no pull request reveals
+    them.
+
+    The first group walks ACCOUNT_PATTERN_CASES, which pins the two guards in
+    ACCOUNT_RE: a UUID's final group is not an account ID, and neither is a
+    twelve-digit run inside a longer hex token, while an account ID in an ARN,
+    in JSON, or after a plain hyphen still is.
+
+    The second group walks every entry in the allowlist in use, builds a
+    synthetic added line for the bare form and for a ``_7``-suffixed form, and
+    reports any that produced a finding. The redaction suffix is the part of the
+    matching that is easiest to get wrong: a ``\\b``-anchored pattern does not
+    match ``i-1234567890abcdef0_3`` at all.
 
     Run it with ``--self-check``. It reads nothing but the allowlist and runs no
     ``git`` command.
     """
     failures: list[str] = []
+
+    for text, expected in ACCOUNT_PATTERN_CASES:
+        found = [match.group(1) for match in ACCOUNT_RE.finditer(text)]
+        if found != expected:
+            failures.append(
+                f"account pattern on `{text}` produced {found or 'no match'}, "
+                f"expected {expected or 'no match'}"
+            )
+
     for identifier in sorted(accounts | instances):
         for value in (identifier, f"{identifier}_7"):
             entries = [("docs/self-check.md", 1, f"value {value} on a line")]
@@ -671,8 +766,9 @@ def main(argv: list[str] | None = None) -> int:
             _error(failure)
         total = len(accounts) + len(instances)
         print(
-            f"Self-check: {total} allowlist entr(ies), bare and `_N`-suffixed, "
-            f"{len(failures)} failure(s)."
+            f"Self-check: {len(ACCOUNT_PATTERN_CASES)} account pattern "
+            f"boundary case(s), {total} allowlist entr(ies) bare and "
+            f"`_N`-suffixed, {len(failures)} failure(s)."
         )
         return 1 if failures else 0
 
