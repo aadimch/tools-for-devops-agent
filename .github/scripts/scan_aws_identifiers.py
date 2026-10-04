@@ -164,12 +164,24 @@ ACCOUNT_VALUE_RE = re.compile(r"([0-9]{12})(?:_([0-9]+))?")
 # the three in practice: ``aws``, ``aws-cn``, ``aws-us-gov``. The region may be
 # empty. The resource may be empty too, so a truncated ARN that stops right
 # after the account still yields its account.
+#
+# Every field before the resource also accepts ``*``, because an IAM policy
+# scopes a resource by wildcarding whichever fields it does not care about:
+# ``arn:aws:logs:*:123456789012:log-group:/aws/lambda/x`` is the ordinary way to
+# name a log group in every region, and this repository ships seven policy JSON
+# files written that way. Without ``*`` in the region class the regex demands a
+# ``:`` where the ``*`` sits, the whole match fails, and the account field is
+# never read at all — so a policy file naming a real account would prove nothing
+# and be reported as nothing. A wildcard in the partition or the account field
+# should also be silent, but silent because the account field is not twelve
+# digits, which is a judgement ``arn_accounts`` makes, rather than because the
+# ARN failed to parse.
 ARN_RE = re.compile(
     r"arn:"
-    r"(?P<partition>aws(?:-[a-z0-9]+)*):"
-    r"(?P<service>[a-z0-9][a-z0-9-]*):"
-    r"(?P<region>[a-z0-9-]*):"
-    r"(?P<account>[0-9A-Za-z_-]*):"
+    r"(?P<partition>\*|aws(?:-[a-z0-9*]+)*):"
+    r"(?P<service>[a-z0-9*][a-z0-9*-]*):"
+    r"(?P<region>[a-z0-9*-]*):"
+    r"(?P<account>[0-9A-Za-z_*-]*):"
     # The resource ends where the surrounding text begins. Whitespace, a quote,
     # a backtick, a backslash (an ARN inside an escaped JSON string ends at the
     # escape), a comma and the closing brackets are all excluded, because each
@@ -214,9 +226,14 @@ TOOL_SUMMARY_BLOCK = "tool_summary"
 # The journal field whose value is an account ID.
 JOURNAL_ACCOUNT_FIELD = "aws_account_id"
 
-# Fallback for the ``aws_account_id`` field when the walk above cannot reach it:
-# a truncated journal that will not parse, or a record whose escaping is deeper
-# than the walk unwinds. The separator class covers every form the field takes
+# A second reading of the ``aws_account_id`` field, straight off the raw text.
+# It runs on every journal, alongside the walk rather than instead of it, and it
+# exists to cover the journals the walk cannot reach: a truncated journal that
+# will not parse, or a record whose escaping is deeper than the walk unwinds.
+# Reading the same field twice costs one pass over the text and can only add the
+# value the walk would have added anyway.
+#
+# The separator class covers every form the field takes
 # in a real journal — ``"aws_account_id": "123456789012"``, the same escaped as
 # ``\"aws_account_id\": \"123456789012\"``, and agent prose writing
 # ``aws_account_id `123456789012` `` — and is bounded so the match cannot run
@@ -648,8 +665,13 @@ def journal_accounts(text: str) -> set[str]:
     ``\\\\"`` and deeper all occur in real journals, and a pattern pinned to one
     depth silently misses the others.
 
-    ``JOURNAL_ACCOUNT_FIELD_RE`` then runs over the raw text as a fallback, for
-    a journal that will not parse at all or whose escaping outruns the walk.
+    ``JOURNAL_ACCOUNT_FIELD_RE`` then reads the same ``aws_account_id`` field a
+    second time, straight off the raw text. It runs on every journal, not only
+    on one the walk failed to parse, because deciding in advance whether the
+    walk reached every record would cost more than reading the text again. What
+    it is there for is the journal the walk cannot reach: one truncated
+    mid-record, or one whose escaping is deeper than the walk unwinds. It can
+    only add the value the walk would have added anyway.
     """
     found: set[str] = set()
 
@@ -997,10 +1019,23 @@ EXTRACTION_CASES: tuple[tuple[str, str, str, list[str]], ...] = (
         ["012345678901"],
     ),
     (
+        "a wildcard region still yields the account, as an IAM policy writes it",
+        "skills/example/references/iam-policy.json",
+        '{"Resource": "arn:aws:logs:*:123456789012:log-group:/aws/lambda/x:*"}',
+        ["123456789012"],
+    ),
+    (
+        "a wildcard in the partition or the account field yields nothing",
+        "skills/example/references/iam-policy.json",
+        '{"Resource": ["arn:*:s3:*:*:accesspoint/example", "arn:aws:iam::*:role/X"]}',
+        [],
+    ),
+    (
         "ARNs are read in any file type, journal fields are not",
         "evals/benchmark.json",
-        '{"aws_account_id": "123456789012"}',
-        [],
+        '{"cluster": "arn:aws:eks:us-east-1:111122223333:cluster/example",'
+        ' "aws_account_id": "123456789012"}',
+        ["111122223333"],
     ),
     (
         "the aws_account_id field of a journal, in a parsed tool input",
@@ -1052,10 +1087,24 @@ REPORTING_CASES: tuple[tuple[str, str, str, str, list[str]], ...] = (
         ["arn:aws:iam::123456789012:role/Example"],
     ),
     (
+        "an IAM policy resource with a wildcard region is reported whole",
+        "skills/example/references/iam-policy.json",
+        "",
+        '      "Resource": "arn:aws:logs:*:123456789012:log-group:/aws/lambda/x:*"',
+        ["arn:aws:logs:*:123456789012:log-group:/aws/lambda/x:*"],
+    ),
+    (
         "an account-less ARN is not reported",
         "docs/report.md",
         "",
         "Grant access to arn:aws:s3:::my-internal-bucket/*",
+        [],
+    ),
+    (
+        "a wildcard account field is not reported",
+        "skills/example/references/iam-policy.json",
+        "",
+        '      "Resource": "arn:aws:iam::*:role/ExampleRole"',
         [],
     ),
     (
@@ -1183,12 +1232,14 @@ def self_check(accounts: set[str], instances: set[str]) -> list[str]:
     them.
 
     EXTRACTION_CASES pins the evidence pass: the three ARN resource forms, an
-    account-less ARN, the ``aws`` account field, a non-``aws`` partition, both
-    journal fields including the nested and escaped ``tool_summary`` shape, and
-    the redaction suffix.
+    account-less ARN, the ``aws`` account field, a non-``aws`` partition, the
+    wildcard fields an IAM policy resource is written with, both journal fields
+    including the nested and escaped ``tool_summary`` shape, and the redaction
+    suffix.
 
     REPORTING_CASES pins the reporting pass end to end with an empty allowlist:
-    an ARN reported whole, a proved account found bare in prose and with a
+    an ARN reported whole, an IAM policy resource whose region is a wildcard
+    reported whole as well, a proved account found bare in prose and with a
     suffix, an instance ID, and each of the five lookalike classes that used to
     be reported by the old twelve-digit shape rule and must now stay silent.
     Each case carries the file text the evidence pass reads and, separately, the

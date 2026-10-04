@@ -197,7 +197,7 @@ A pull request check ([`.github/workflows/scan-aws-identifiers.yml`](.github/wor
 
 | Source | What it looks like |
 | --- | --- |
-| The account field of an [ARN](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html) | the fifth colon-separated field, as in `arn:aws:iam::123456789012:role/Example` |
+| The account field of an [ARN](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html) | the fifth colon-separated field, as in `arn:aws:iam::123456789012:role/Example`. A `*` in the partition, service or region field is read the same way, so an IAM policy resource such as `arn:aws:logs:*:123456789012:log-group:/aws/lambda/x:*` still proves its account |
 | An object key in the tool result of a `tool_summary` block, in a `journal_records.json` file | DevOps Agent records a per-account AWS API result as a map keyed by account ID: `{"123456789012": {"DBInstances": []}}` |
 | The value of an `aws_account_id` field, in a `journal_records.json` file | `"aws_account_id": "123456789012"`, in a recorded tool input or in agent prose |
 
