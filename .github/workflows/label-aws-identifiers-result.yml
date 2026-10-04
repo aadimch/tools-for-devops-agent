@@ -80,8 +80,31 @@ jobs:
           pr=$(tr -dc '0-9' < result/pr-number)
           outcome=$(tr -dc 'a-z' < result/outcome)
 
-          if [ -z "$pr" ] || { [ "$outcome" != "pass" ] && [ "$outcome" != "fail" ]; }; then
-            echo "::warning::Unexpected artifact contents (pr='$pr' outcome='$outcome')."
+          case "$outcome" in
+            pass|fail) ;;
+            error)
+              # The check ran but could not reach a verdict: a malformed
+              # allowlist, a failed self-check, an unreachable remote. The
+              # scanning job has already failed, so the pull request is not
+              # going anywhere, and leaving the label untouched is the point —
+              # `needs-id-redact` says "this pull request contains identifiers",
+              # which is a claim nobody is in a position to make here. Applying
+              # it would send the author hunting for a value that does not
+              # exist; removing it would clear a true finding from an earlier
+              # run on the strength of an infrastructure failure.
+              echo "::notice::The scan could not complete, so the needs-id-redact label is left as it is."
+              echo "found=false" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+            *)
+              echo "::warning::Unexpected artifact contents (pr='$pr' outcome='$outcome')."
+              echo "found=false" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+          esac
+
+          if [ -z "$pr" ]; then
+            echo "::warning::Artifact carries outcome '$outcome' but no pull request number."
             echo "found=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
