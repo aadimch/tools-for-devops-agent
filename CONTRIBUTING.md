@@ -187,6 +187,38 @@ If an issue lands with you, verify the skill against the checklist in it. When i
 
 Test relevant scenarios with and without the custom agent, multiple times. Focus on quality and consistency of the output, compared to asking DevOps Agent the same question using chat. When checking consistency, the output doesn't have to be the same verbatim - focus on the substance
 
+## Redacting AWS Identifiers
+
+**Redact your own AWS identifiers before you commit.** This repository is public, and a commit is permanent: once an account ID, an ARN or an instance ID is on `main` it is in the history for good, and deleting it in a later commit does not remove it. Redacting is yours to do. Two pieces of tooling help — the skill evaluation tool's redaction pass, and the pull request check described in the next section — and neither covers everything.
+
+Replace, in every file you add or change:
+
+| Identifier | Replace with |
+| --- | --- |
+| An AWS account ID | `123456789012` or `111122223333`, the AWS documentation example accounts |
+| An ARN | the whole ARN, not only its account field. An ARN also carries a region, a service and a resource name, so blanking the account leaves most of it standing. Rewrite it with an example account and a generic resource name: `arn:aws:eks:us-east-1:123456789012:cluster/example-cluster` |
+| An EC2 instance ID | `i-0123456789abcdef0` |
+| Any other real resource name | something plainly generic. A cluster name, an S3 bucket name, a database identifier, a stack name and a role name each describe your environment to a reader, and none of them is something automation can tell apart from an example |
+
+Where real identifiers tend to arrive:
+
+1. **A hand-written eval prompt in `evals.json`.** You write the prompt, so no tool ever rewrites it. A prompt naming the cluster you tested against publishes that cluster's ARN.
+2. **Agent output recorded by the skill evaluation tool**, in three files per run: `journal_records.json` holds the DevOps Agent journal, `benchmark.json` holds the scores and the output they were scored on, and each scenario's `functional-tests-results.json` quotes the output again as the evidence for every assertion it judged. All three are where the tool's redaction does most of its work, and where anything it misses ends up. The same identifier usually appears in more than one of them, so check each rather than fixing the journal and assuming the rest followed.
+3. **Anything pasted from the console, the CLI or a support case** into a skill, a reference document, a README or a pull request description.
+4. **Example IAM policies and CloudFormation snippets** in documentation, which carry ARNs by nature.
+
+### Why the tooling is not enough
+
+**The skill evaluation tool's redaction pass rewrites the agent's own output, and only that.** It replaces an account ID with `012345678901` and an instance ID with `i-1234567890abcdef0`, adding `_1`, `_2` and so on to tell two different originals apart. Three things it does not reach:
+
+- A file it did not write. Your hand-written `evals.json` prompt is untouched, and so is the run metadata the harness writes at the root of each functional version directory — `_metadata.json`, whose CloudFormation stack ARNs name the account the evaluation ran in. That file is gitignored for this reason, so a fresh run no longer carries it into the repository.
+- An account that is not the one the run operated in. A third-party account appearing inside a returned API payload has been observed passing through unredacted while the operating account in the same sentence was replaced.
+- Anything outside an eval run.
+
+**The check only reports an account ID when something proves it is one**, which is what keeps it quiet about the twelve-digit numbers that are not accounts. The cost is two gaps, both described in the next section: an account ID written only as prose in a file that is not a journal is proved by nothing and goes unreported, and an ARN using a placeholder syntax the check cannot parse takes the account beside it down with it. An ARN with no account field is not reported at all, deliberately.
+
+So a green check means nothing was proved, not that nothing is there. Read your own diff before you push, and look hardest at what you pasted rather than at what you wrote.
+
 ## Scanning for AWS Identifiers
 
 A pull request check ([`.github/workflows/scan-aws-identifiers.yml`](.github/workflows/scan-aws-identifiers.yml)) looks for unredacted AWS identifiers in what your pull request adds. An account ID or instance ID committed here names a real resource in a real account, and once it's on `main` it's in the public history for good. It applies to every file in the repository, not just to skills.
