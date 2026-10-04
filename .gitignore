@@ -39,5 +39,12 @@ docs/mcp-servers/*.md
 # "do not commit" header is not.
 .agents/
 
+# Git worktrees. An agent working on a branch in parallel with the checkout
+# creates one here, and each is a full second copy of the tree, so committing one
+# would nest the repository inside itself. Git keeps the worktree's own
+# administrative files elsewhere, under .git/worktrees, so ignoring this
+# directory loses nothing.
+.worktrees/
+
 # Holmes
 .holmesignore
