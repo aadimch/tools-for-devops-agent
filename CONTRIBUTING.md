@@ -230,7 +230,7 @@ A pull request check ([`.github/workflows/scan-aws-identifiers.yml`](.github/wor
 | Source | What it looks like |
 | --- | --- |
 | The account field of an [ARN](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html) | the fifth colon-separated field, as in `arn:aws:iam::123456789012:role/Example`. A `*` in the partition, service or region field is read the same way, so an IAM policy resource such as `arn:aws:logs:*:123456789012:log-group:/aws/lambda/x:*` still proves its account |
-| An object key in the tool result of a `tool_summary` block, in a `journal_records.json` file | DevOps Agent records a per-account AWS API result as a map keyed by account ID: `{"123456789012": {"DBInstances": []}}` |
+| An object key inside the `text` field of a `tool_summary` block's tool result, in a `journal_records.json` file | `text` holds JSON as a string, and DevOps Agent keys a per-account AWS API result by account ID, so the key itself is the account: `"text": "{\"123456789012\": {\"DBInstances\": []}}"` |
 | The value of an `aws_account_id` field, in a `journal_records.json` file | `"aws_account_id": "123456789012"`, in a recorded tool input or in agent prose |
 
 The two journal sources read fields of the DevOps Agent journal schema, which is why they're read only in a file named `journal_records.json` — the same names elsewhere mean something else. Other spellings an API response or a person might use, `AccountId` and `accountId` among them, are deliberately not read.
